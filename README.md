@@ -80,11 +80,8 @@ cd foundry
 **Create conda environment from YAML:**
 
 ```bash
-# TODO: Add your conda environment YAML
-# conda env create -f environments/rfd3_env.yml
-# OR create manually:
-conda create -n rfd3_env python=3.12 -y
-conda activate rfd3_env
+conda env create -f environments/rfd3_env.yml
+conda activate rfd3
 ```
 
 **Install Foundry packages:**
@@ -120,13 +117,8 @@ cd LigandMPNN
 bash get_model_params.sh "./model_params"
 
 # Create conda environment from YAML:
-# TODO: Add your conda environment YAML
-# conda env create -f environments/ligandmpnn_env.yml
-
-# OR create manually:
-conda create -n ligandmpnn_env python=3.11 -y
+conda env create -f environments/ligandmpnn_env.yml
 conda activate ligandmpnn_env
-pip install -r requirements.txt
 ```
 
 ---
@@ -136,19 +128,11 @@ pip install -r requirements.txt
 **Create conda environment from YAML:**
 
 ```bash
-# TODO: Add your conda environment YAML
-# conda env create -f environments/chai_env.yml
-
-# OR create manually:
-conda create -n chai_env python=3.10 -y
+conda env create -f environments/chai_env.yml
 conda activate chai_env
 ```
 
-**Install Chai:**
-
-```bash
-pip install git+https://github.com/chaidiscovery/chai-lab.git
-```
+Chai is already installed in the environment.
 
 ---
 
@@ -169,12 +153,11 @@ module load AlphaFold
 **Create conda environment from YAML:**
 
 ```bash
-# TODO: Add your conda environment YAML
-# conda env create -f environments/boltz_env.yml
+conda env create -f environments/boltz_env.yml
+conda activate boltz203
 ```
 
-**Or install from source:**
-- https://github.com/jwohlwend/boltz
+Boltz is already installed in the environment.
 
 ---
 
@@ -274,14 +257,18 @@ python -c "import boltz; print('Boltz OK')"
 
 ## Quick Start
 
-### 1. Install All Modules
+### 1. Setup Conda Environments
 
-Follow the **Installation Guide** above to set up:
-- RFDiffusion (Foundry)
-- LigandMPNN
-- At least one folding engine (Chai, AlphaFold, or Boltz)
+Create all conda environments from the provided YAML files:
 
-Verify installations by running the test commands in the "Verify Installations" section.
+```bash
+conda env create -f environments/rfd3_env.yml
+conda env create -f environments/ligandmpnn_env.yml
+conda env create -f environments/chai_env.yml
+conda env create -f environments/boltz_env.yml
+```
+
+Verify installations by running the test commands in the "Verify Installations" section of the Installation Guide.
 
 ### 2. Configure Your Design
 
