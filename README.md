@@ -1,4 +1,4 @@
-# 🧬 Multi-Stage Protein Design Pipeline
+# Multi-Stage Protein Design Pipeline
 
 A modular, production-ready pipeline for **protein design and structure prediction** combining RFDiffusion, sequence design (MPNN), and multiple folding engines (Chai, AlphaFold, Boltz).
 
@@ -44,7 +44,7 @@ A modular, production-ready pipeline for **protein design and structure predicti
 
 ---
 
-##Features
+## Features
 
 - **Checkpoint-based resumption** — Resume from any stage without recalculating earlier stages
 - **Modular folding engines** — Easily swap between Chai, AlphaFold, and Boltz
