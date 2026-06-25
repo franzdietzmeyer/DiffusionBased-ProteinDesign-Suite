@@ -41,16 +41,28 @@ fi
 python3 "$SCRIPT_DIR/config_utils.py" "$CONFIG_FILE" || exit 1
 
 # Extract config values using Python
-CONFIG_DATA=$(python3 << 'PYEOF'
+CONFIG_DATA=$(python3 << PYEOF
 import sys
-sys.path.insert(0, '$SCRIPT_DIR')
+sys.path.insert(0, '/work2/fd55fani-genie3/pipeline_scaffolding/scripts')
 from config_utils import load_config
 import json
 
 config = load_config('$CONFIG_FILE').to_dict()
 
+import os
+
+rfd3_settings = config.get('rfd3', {}).get('settings_json', '')
+config_subdir = config.get('output', {}).get('subdirectory', '')
+
+# Use JSON filename as subdirectory if config subdirectory is empty
+if not config_subdir or config_subdir == 'design_run':
+    json_name = os.path.splitext(os.path.basename(rfd3_settings))[0]
+    subdir = json_name if json_name else 'design_run'
+else:
+    subdir = config_subdir
+
 print(json.dumps({
-    'rfd3_settings': config.get('rfd3', {}).get('settings_json', ''),
+    'rfd3_settings': rfd3_settings,
     'rfd3_checkpoint': config.get('rfd3', {}).get('checkpoint', ''),
     'rfd3_batch_size': config.get('rfd3', {}).get('batch_size', 4),
     'rfd3_n_batches': config.get('rfd3', {}).get('n_batches', 5),
@@ -62,7 +74,7 @@ print(json.dumps({
     'mpnn_conda': config.get('sequence_design', {}).get('conda_env', ''),
     'mpnn_path': config.get('sequence_design', {}).get('ligandmpnn_path', ''),
     'work_dir': config.get('output', {}).get('work_directory', ''),
-    'subdir': config.get('output', {}).get('subdirectory', 'design_run'),
+    'subdir': subdir,
     'smiles': config.get('ligands', {}).get('smiles_list', []),
     'template_dir': config.get('fixed_residues', {}).get('template_pdb_dir', ''),
 }))
@@ -123,7 +135,7 @@ else
     cp "$RFD3_SETTINGS" "$TEMP_SETTINGS"
 
     # Activate RFD3 environment and run
-    source "$RFD3_FOUNDRY/bin/activate"
+    module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; source "$RFD3_FOUNDRY/bin/activate"
 
     rfd3 design \
         out_dir="$RFD3_OUTPUT" \

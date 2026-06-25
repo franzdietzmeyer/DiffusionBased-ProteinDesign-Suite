@@ -41,13 +41,25 @@ fi
 python3 "$SCRIPT_DIR/config_utils.py" "$CONFIG_FILE" || exit 1
 
 # Extract config values using Python
-CONFIG_DATA=$(python3 << 'PYEOF'
+CONFIG_DATA=$(python3 << PYEOF
 import sys
-sys.path.insert(0, '$SCRIPT_DIR')
+sys.path.insert(0, '/work2/fd55fani-genie3/pipeline_scaffolding/scripts')
 from config_utils import load_config
 import json
 
 config = load_config('$CONFIG_FILE').to_dict()
+
+import os
+
+rfd3_settings = config.get('rfd3', {}).get('settings_json', '')
+config_subdir = config.get('output', {}).get('subdirectory', '')
+
+# Use JSON filename as subdirectory if config subdirectory is empty
+if not config_subdir or config_subdir == 'design_run':
+    json_name = os.path.splitext(os.path.basename(rfd3_settings))[0]
+    subdir = json_name if json_name else 'design_run'
+else:
+    subdir = config_subdir
 
 print(json.dumps({
     'engine': config.get('folding_engine', {}).get('engine', 'chai'),
@@ -66,7 +78,7 @@ print(json.dumps({
     'min_sasa': config.get('ligands', {}).get('min_cofactor_sasa'),
     'smiles': config.get('ligands', {}).get('smiles_list', []),
     'work_dir': config.get('output', {}).get('work_directory', ''),
-    'subdir': config.get('output', {}).get('subdirectory', 'design_run'),
+    'subdir': subdir,
     'seq_opt_enabled': config.get('sequence_optimization', {}).get('enabled', False),
     'seq_opt_temp': config.get('sequence_optimization', {}).get('temperature', 0.2),
     'seq_opt_seqs': config.get('sequence_optimization', {}).get('seqs_per_backbone', 3),
@@ -144,22 +156,17 @@ else
     mkdir -p "$FOLDING_OUTPUT"
 
     if [[ "$FOLDING_ENGINE" == "chai" ]]; then
-        # Build SMILES arguments
-        SMILES_ARGS=""
-        CONFIG_SMILES=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; smiles_list = json.load(sys.stdin).get('smiles', []); print(' '.join([f'--smiles \"{s}\"' for s in smiles_list]))")
-
-        source "$CHAI_ENV/bin/activate"
+        module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
 
         "$CHAI_ENV/bin/python" "$SCRIPT_DIR/design_refolding.py" \
             --input_dir "$MPNN_BACKBONES" \
             --output_dir "$FOLDING_OUTPUT" \
             --engine chai \
             --recycles "$CHAI_RECYCLES" \
-            --timesteps "$CHAI_TIMESTEPS" \
-            $CONFIG_SMILES
+            --timesteps "$CHAI_TIMESTEPS"
 
         FOLDING_EXIT_CODE=$?
-        deactivate
+        conda deactivate
 
         if [[ $FOLDING_EXIT_CODE -ne 0 ]]; then
             echo "✗ Folding failed with exit code $FOLDING_EXIT_CODE"
@@ -208,11 +215,10 @@ else
             --input_dir "$MPNN_BACKBONES" \
             --output_dir "$FOLDING_OUTPUT" \
             --engine boltz \
-            --recycles "$BOLTZ_RECYCLES" \
-            $CONFIG_SMILES
+            --recycles "$BOLTZ_RECYCLES"
 
         FOLDING_EXIT_CODE=$?
-        deactivate
+        conda deactivate
 
         if [[ $FOLDING_EXIT_CODE -ne 0 ]]; then
             echo "✗ Boltz folding failed with exit code $FOLDING_EXIT_CODE"
@@ -251,9 +257,9 @@ else
     FILTER_ARGS="--min_plddt $MIN_PLDDT --min_motif_plddt $MIN_MOTIF_PLDDT --max_rmsd $MAX_RMSD --max_motif_rmsd $MAX_MOTIF_RMSD"
     [[ -n "$FIXED_RES_JSON" ]] && FILTER_ARGS="$FILTER_ARGS --fixed_res_json $FIXED_RES_JSON"
     [[ -n "$COFACTOR" ]] && FILTER_ARGS="$FILTER_ARGS --cofactor $COFACTOR"
-    [[ -n "$MIN_SASA" ]] && FILTER_ARGS="$FILTER_ARGS --min_cofactor_sasa $MIN_SASA"
+    [[ -n "$MIN_SASA" && "$MIN_SASA" != "None" ]] && FILTER_ARGS="$FILTER_ARGS --min_cofactor_sasa $MIN_SASA"
 
-    source "$CHAI_ENV/bin/activate"
+    module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
 
     "$CHAI_ENV/bin/python" "$SCRIPT_DIR/design_helper_script.py" \
         --input "$FOLDING_OUTPUT" \
@@ -263,7 +269,7 @@ else
         $FILTER_ARGS
 
     ANALYSIS_EXIT_CODE=$?
-    deactivate
+    conda deactivate
 
     if [[ $ANALYSIS_EXIT_CODE -ne 0 ]]; then
         echo "✗ Analysis failed with exit code $ANALYSIS_EXIT_CODE"
@@ -365,17 +371,17 @@ except Exception:
             --batch_size 1
 
         # Run folding on optimized sequences
-        source "$CHAI_ENV/bin/activate"
+        module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
 
         "$CHAI_ENV/bin/python" "$SCRIPT_DIR/design_refolding.py" \
             --input_dir "$OPT_MPNN_OUTPUT/backbones" \
             --output_dir "$OPT_FOLDING_OUTPUT" \
             --engine "$FOLDING_ENGINE"
 
-        deactivate
+        conda deactivate
 
         # Final analysis on optimized designs
-        source "$CHAI_ENV/bin/activate"
+        module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
 
         FILTER_ARGS="--min_plddt $MIN_PLDDT --min_motif_plddt $MIN_MOTIF_PLDDT --max_rmsd $MAX_RMSD --max_motif_rmsd $MAX_MOTIF_RMSD"
         [[ -n "$FIXED_RES_JSON" ]] && FILTER_ARGS="$FILTER_ARGS --fixed_res_json $FIXED_RES_JSON"
@@ -389,7 +395,7 @@ except Exception:
             --template_pdbs "$RFD3_BACKBONES" \
             $FILTER_ARGS
 
-        deactivate
+        conda deactivate
 
         echo "✓ Optimization completed successfully"
         echo "$(date)" > "$CHECKPOINT_DIR/optimization.checkpoint"
@@ -398,6 +404,30 @@ fi
 
 echo ""
 echo "=========================================================================="
+echo "Generating Analysis Plots..."
+echo "=========================================================================="
+
+PLOTS_DIR="$DESIGN_DIR/plots"
+mkdir -p "$PLOTS_DIR"
+
+module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
+
+python3 "$SCRIPT_DIR/plot_analysis.py" \
+    --output_dir "$DESIGN_DIR/output" \
+    --plot_dir "$PLOTS_DIR"
+
+PLOT_EXIT_CODE=$?
+conda deactivate
+
+if [[ $PLOT_EXIT_CODE -eq 0 ]]; then
+    echo "✓ Plots generated successfully"
+else
+    echo "⚠ Plotting completed with warnings (non-critical)"
+fi
+
+echo ""
+echo "=========================================================================="
 echo "STAGE 2 COMPLETE: Structure prediction and analysis finished"
 echo "Results directory: $ANALYSIS_OUTPUT"
+echo "Plots directory: $PLOTS_DIR"
 echo "=========================================================================="

@@ -88,8 +88,8 @@ fixed_residues:
 # Output & Logging Configuration
 # ============================================================================
 output:
-  work_directory: "/work2/fd55fani-genie3/HA_MES_outputs"  # UPDATE: Base working directory for results
-  subdirectory: "testrun_1_clara"                           # Change per run (e.g., clara_run_001, clara_run_002)
+  work_directory: "/work2/fd55fani-genie3/pipeline_scaffolding/HA_MES_outputs"  # UPDATE: Base working directory for results
+  subdirectory: ""                                           # Leave empty to auto-use JSON filename, or specify custom name
 
   logs_dir: "logs"
   scripts_dir: "scripts"
