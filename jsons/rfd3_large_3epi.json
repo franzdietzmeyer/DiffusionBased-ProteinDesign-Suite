@@ -1,0 +1,20 @@
+{
+    "mes_rfd3_3epi_large": {
+        "input": "/work2/fd55fani-genie3/pipeline_scaffolding/input_pdb/epitope_a_chainB_noh.pdb",
+        "unindex": "B48-58,B73-80,B115,B263,B276-280,B131-138,B146,B154-159,B187-197,B220-227,B370-393",
+        "length": "270-350",
+        "select_fixed_atoms": {
+            "B48-58":   "ALL",
+            "B73-80":   "ALL",
+            "B115":     "ALL",
+            "B263":     "ALL",
+            "B276-280": "ALL",
+            "B131-138": "ALL",
+            "B146":     "ALL",
+            "B154-159": "ALL",
+            "B187-197": "ALL",
+            "B220-227": "ALL",
+            "B370-393": "ALL"
+        }
+    }
+}

@@ -1,0 +1,133 @@
+# Design Pipeline Configuration
+# Multi-stage protein design workflow using RFDiffusion + Sequence Design + Structure Prediction
+
+# ============================================================================
+# STAGE 1: RFDiffusion Configuration
+# ============================================================================
+rfd3:
+  settings_json: ""                    # Path to RFD3 settings JSON file (REQUIRED)
+  checkpoint: ""                       # Path to RFD3 checkpoint file (REQUIRED)
+  batch_size: 4                        # Batch size for RFD3 inference
+  n_batches: 5                         # Number of batches to generate
+  inference_sampler_step_scale: 1.5    # Controls diversity (higher = less diverse, more designable)
+  foundry_path: ""                     # Path to RFD3 foundry environment (REQUIRED)
+
+# ============================================================================
+# STAGE 1: Sequence Design (ProteinMPNN/LigandMPNN) Configuration
+# ============================================================================
+sequence_design:
+  model_type: "ligand"                 # Options: "ligand", "protein", "soluble"
+  temperature: 0.1                     # Temperature for sequence generation
+  seqs_per_backbone: 15                # Number of sequences per backbone
+  batch_size: 1                        # MPNN batch size
+  conda_env: ""                        # Path to LigandMPNN conda environment (REQUIRED)
+  ligandmpnn_path: ""                  # Path to LigandMPNN repository (REQUIRED)
+
+# ============================================================================
+# STAGE 2: Structure Validation & Folding Engine Configuration
+# ============================================================================
+folding_engine:
+  engine: "chai"                       # Options: "chai", "alphafold", "boltz"
+
+  # Chai1 Configuration
+  chai:
+    conda_env: ""                      # Path to Chai conda environment (REQUIRED for chai)
+    recycles: 3                        # Number of trunk recycles
+    timesteps: 200                     # Diffusion timesteps
+    use_esm_embeddings: true           # Use ESM embeddings during prediction
+
+  # AlphaFold Configuration
+  alphafold:
+    hpc_module: "AlphaFold"                    # HPC module to load
+    data_dir: "/software/databases/alphafold"  # ALPHAFOLD_DATA_DIR (optional, uses env if not set)
+    model_preset: "multimer"                   # Options: "monomer", "multimer" (default: multimer)
+    max_template_date: "2022-01-01"            # Template cutoff date
+
+  # Boltz Configuration (single-sequence mode, msa: empty)
+  boltz:
+    conda_env: ""                      # Path to Boltz conda environment (REQUIRED for boltz)
+                                       # Example: /work2/fd55fani-conda/boltz203
+                                       # Find your Boltz path with: find /work2 -type d -name "*boltz*"
+    num_recycles: 4                    # Number of recycles (Boltz specific parameter)
+                                       # Note: Boltz runs in single-sequence mode (msa: empty)
+
+# ============================================================================
+# Optional: Sequence Optimization Round
+# ============================================================================
+sequence_optimization:
+  enabled: false                       # Enable second round of sequence optimization
+  temperature: 0.2                     # Temperature for optimization
+  seqs_per_backbone: 3                 # Sequences generated per backbone in optimization
+
+# ============================================================================
+# Ligand/Cofactor Configuration
+# ============================================================================
+ligands:
+  smiles_list: []                      # List of SMILES strings to include
+                                       # Format: ["NAME1 SMILES1", "NAME2 SMILES2"]
+  cofactor_name: "VO4"                 # Name of cofactor for SASA calculation
+  min_cofactor_sasa: null              # Minimum cofactor SASA (null to disable)
+
+# ============================================================================
+# Filtering Thresholds
+# ============================================================================
+filters:
+  min_plddt_initial: 80.0              # Min pLDDT after first Chai run (0-100 scale)
+  min_plddt_final: 80.0                # Min pLDDT for final results (0-100 scale)
+  min_motif_plddt: 85.0                # Min pLDDT for active site residues
+  max_backbone_rmsd: 3.0               # Max Cα RMSD vs template
+  max_motif_rmsd: 1.5                  # Max heavy-atom RMSD for active site
+  fixed_residues_json: ""              # Path to LigandMPNN fixed residues JSON
+
+# ============================================================================
+# Fixed Residue Configuration (for active site constraint)
+# ============================================================================
+fixed_residues:
+  template_pdb_dir: ""                 # Directory containing input PDB templates (REQUIRED)
+  # Fixed residues are extracted from LigandMPNN output during pipeline execution
+
+# ============================================================================
+# Output & Logging Configuration
+# ============================================================================
+output:
+  work_directory: ""                   # Base working directory (REQUIRED)
+  subdirectory: "design_run"           # Subdirectory name for this run
+  # Final structure: work_directory/design_generation/subdirectory/
+
+  logs_dir: "logs"                     # Relative path from pipeline root for logs
+  scripts_dir: "scripts"               # Relative path from pipeline root for scripts
+
+# ============================================================================
+# Conda Environment Paths (Alternative to separate fields above)
+# ============================================================================
+conda_environments:
+  rfd3: ""                             # RFD3 foundry environment (alternative config)
+  chai: ""                             # Chai folding engine
+  alphafold: ""                        # AlphaFold (if using HPC module, leave blank)
+  boltz: ""                            # Boltz folding engine
+  ligandmpnn: ""                       # LigandMPNN for sequence design
+
+# ============================================================================
+# Hardware & Cluster Configuration
+# ============================================================================
+hardware:
+  partition: "paula"                   # Partition to submit jobs to
+                                       # Options:
+                                       #   "paula" - 8x Nvidia Tesla A30 per node
+                                       #            10,752 CUDA cores, 336 Tensor cores, 24GB HBM2 RAM
+                                       #   "clara" - 4x Nvidia Tesla V100
+                                       #            5,120 CUDA cores, 640 Tensor cores, 32GB ECC HBM2 RAM
+  cpus_per_task: 4                     # CPUs per task (default: 4)
+  memory_per_task: "40G"               # Memory per task (default: 40G)
+  gpus_per_task: 1                     # GPUs per task (default: 1)
+  time_limit: "24:00:00"               # Time limit per job (default: 24:00:00)
+
+# ============================================================================
+# Advanced Options
+# ============================================================================
+advanced:
+  force_rerun_stage: null              # Force rerun of specific stage (null = auto-resume)
+                                       # Options: "rfd3", "mpnn", "folding", "analysis"
+  keep_intermediate_files: false       # Keep all intermediate CIF/PDB files
+  validation_strict: true              # Strict validation of outputs
+  parallel_mpnn_jobs: 1                # Number of parallel MPNN jobs (if applicable)
