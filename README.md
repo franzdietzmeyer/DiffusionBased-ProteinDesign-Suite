@@ -57,6 +57,151 @@ A modular, production-ready pipeline for **protein design and structure predicti
 
 ---
 
+## 🔧 Installation Guide
+
+### Prerequisites
+
+- Python 3.10+
+- Conda or Mamba package manager
+- CUDA-capable GPU (for folding engines)
+- Git
+
+### Module Installation
+
+#### 1. RFDiffusion (RFD3) + Foundry
+
+**Clone and setup Foundry:**
+
+```bash
+git clone https://github.com/RosettaCommons/foundry.git
+cd foundry
+```
+
+**Create conda environment from YAML:**
+
+```bash
+# TODO: Add your conda environment YAML
+# conda env create -f environments/rfd3_env.yml
+# OR create manually:
+conda create -n rfd3_env python=3.12 -y
+conda activate rfd3_env
+```
+
+**Install Foundry packages:**
+
+```bash
+# For complete installation (RFD3, LigandMPNN, ProteinMPNN, RF3):
+uv pip install 'rc-foundry[all]'
+
+# OR for RFD3 only:
+uv pip install rc-foundry[rfd3]
+```
+
+**Download RFD3 checkpoints:**
+
+```bash
+# All checkpoints
+foundry install all --checkpoint-dir /path/to/checkpoint/dir
+
+# RFD3 only
+foundry install rfd3 --checkpoint-dir /path/to/checkpoint/dir
+```
+
+---
+
+#### 2. LigandMPNN (Sequence Design)
+
+```bash
+# Clone repository
+git clone https://github.com/dauparas/LigandMPNN.git
+cd LigandMPNN
+
+# Download model parameters
+bash get_model_params.sh "./model_params"
+
+# Create conda environment from YAML:
+# TODO: Add your conda environment YAML
+# conda env create -f environments/ligandmpnn_env.yml
+
+# OR create manually:
+conda create -n ligandmpnn_env python=3.11 -y
+conda activate ligandmpnn_env
+pip install -r requirements.txt
+```
+
+---
+
+#### 3. Chai1 (Structure Prediction)
+
+**Create conda environment from YAML:**
+
+```bash
+# TODO: Add your conda environment YAML
+# conda env create -f environments/chai_env.yml
+
+# OR create manually:
+conda create -n chai_env python=3.10 -y
+conda activate chai_env
+```
+
+**Install Chai:**
+
+```bash
+pip install git+https://github.com/chaidiscovery/chai-lab.git
+```
+
+---
+
+#### 4. AlphaFold2 (Optional Alternative)
+
+Follow the official AlphaFold2 installation guide:
+- https://github.com/google-deepmind/alphafold
+
+Typically loaded as an HPC module:
+```bash
+module load AlphaFold
+```
+
+---
+
+#### 5. Boltz (Optional Alternative)
+
+**Create conda environment from YAML:**
+
+```bash
+# TODO: Add your conda environment YAML
+# conda env create -f environments/boltz_env.yml
+```
+
+**Or install from source:**
+- https://github.com/jwohlwend/boltz
+
+---
+
+### Verify Installations
+
+Test that each module is correctly installed:
+
+```bash
+# Test RFD3
+source /path/to/rfd3_env/bin/activate
+python -c "from foundry import rfd3; print('RFD3 OK')"
+
+# Test LigandMPNN
+source /path/to/ligandmpnn_env/bin/activate
+python -c "import ligandmpnn; print('LigandMPNN OK')"
+
+# Test Chai
+source /path/to/chai_env/bin/activate
+python -c "from chai_lab import chai1; print('Chai OK')"
+
+# Test Boltz
+source /path/to/boltz_env/bin/activate
+python -c "import boltz; print('Boltz OK')"
+```
+
+---
+
 ## Pipeline Overview
 
 ### Two-Stage Architecture
@@ -129,19 +274,14 @@ A modular, production-ready pipeline for **protein design and structure predicti
 
 ## Quick Start
 
-### 1. Setup Conda Environments
+### 1. Install All Modules
 
-Create conda environments from YAML files:
+Follow the **Installation Guide** above to set up:
+- RFDiffusion (Foundry)
+- LigandMPNN
+- At least one folding engine (Chai, AlphaFold, or Boltz)
 
-```bash
-# TODO: Add conda environment setup instructions
-# conda env create -f environments/rfd3_env.yml
-# conda env create -f environments/chai_env.yml
-# conda env create -f environments/ligandmpnn_env.yml
-# conda env create -f environments/boltz_env.yml
-```
-
-**Note**: Environment YAML files will be added in a future release.
+Verify installations by running the test commands in the "Verify Installations" section.
 
 ### 2. Configure Your Design
 
