@@ -1,0 +1,16 @@
+{
+    "mes_rfd3_3epi_contig": {
+        "input": "/work2/fd55fani-genie3/paul-pipe/epitope_a_chainB_noh.pdb",
+        "contig": "20-50,B73-77,2-10,B115-120,2-10,B150,20-40,B370-393,20-40,B137-138,2-10,B154,2-10,B157,2-10,B190-196,20-50",
+        "select_fixed_atoms": {
+            "B73-77": "ALL",
+            "B115-120": "ALL",
+            "B150": "ALL",
+            "B137-138": "ALL",
+            "B154": "ALL",
+            "B157": "ALL",
+            "B190-196": "ALL",
+            "B370-393": "ALL"
+        }
+    }
+}
