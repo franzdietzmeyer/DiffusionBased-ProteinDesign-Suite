@@ -44,24 +44,9 @@ fi
 
 CHECKPOINT_DIR="${CHECKPOINT_DIR:-$INSTALL_DIR/checkpoints}"
 
-# Module paths (with fallback discovery)
-if [[ -z "$RFD3_DIR" ]]; then
-    if [[ -d "$PARENT_DIR/rfd3_new/foundry" ]]; then
-        RFD3_DIR="$PARENT_DIR/rfd3_new/foundry"
-    elif [[ -d "$PARENT_DIR/foundry" ]]; then
-        RFD3_DIR="$PARENT_DIR/foundry"
-    else
-        RFD3_DIR="$PARENT_DIR/foundry"  # Will be cloned here if doesn't exist
-    fi
-fi
-
-if [[ -z "$LIGANDMPNN_DIR" ]]; then
-    if [[ -d "$PARENT_DIR/LigandMPNN" ]]; then
-        LIGANDMPNN_DIR="$PARENT_DIR/LigandMPNN"
-    else
-        LIGANDMPNN_DIR="$PARENT_DIR/LigandMPNN"  # Will be cloned here if doesn't exist
-    fi
-fi
+# Module paths (clone inside repo root)
+RFD3_DIR="${RFD3_DIR:-$INSTALL_DIR/foundry}"
+LIGANDMPNN_DIR="${LIGANDMPNN_DIR:-$INSTALL_DIR/LigandMPNN}"
 
 # Resolve to absolute paths (safely)
 if [[ -d "$CONDA_ENV_DIR" ]]; then
@@ -192,26 +177,18 @@ install_rfd3() {
     # Check if already cloned
     if [[ ! -d "$RFD3_DIR" ]]; then
         log_info "Cloning Foundry repository..."
-        mkdir -p "$(dirname "$RFD3_DIR")"
-        cd "$(dirname "$RFD3_DIR")"
-        git clone https://github.com/RosettaCommons/foundry.git "$(basename "$RFD3_DIR")"
+        cd "$INSTALL_DIR"
+        git clone https://github.com/RosettaCommons/foundry.git foundry
     else
-        log_warn "Foundry directory already exists: $RFD3_DIR"
+        log_warn "Foundry already exists: $RFD3_DIR"
     fi
-
-    cd "$RFD3_DIR"
 
     # Check if conda env exists
     if conda env list | grep -q "$RFD3_ENV"; then
         log_warn "Conda environment '$RFD3_ENV' already exists"
     else
         log_info "Creating RFD3 conda environment..."
-        if [[ -f "environments/rfd3_env.yml" ]]; then
-            conda env create -f environments/rfd3_env.yml -p "$CONDA_ENV_DIR/$RFD3_ENV" -y
-        else
-            log_error "environments/rfd3_env.yml not found in $RFD3_DIR"
-            return 1
-        fi
+        conda env create -f "$INSTALL_DIR/environments/rfd3_env.yml" -p "$CONDA_ENV_DIR/$RFD3_ENV" -y
     fi
 
     log_success "RFD3 environment ready"
@@ -223,11 +200,10 @@ install_mpnn() {
     # Check if already cloned
     if [[ ! -d "$LIGANDMPNN_DIR" ]]; then
         log_info "Cloning LigandMPNN repository..."
-        mkdir -p "$(dirname "$LIGANDMPNN_DIR")"
-        cd "$(dirname "$LIGANDMPNN_DIR")"
-        git clone https://github.com/dauparas/LigandMPNN.git "$(basename "$LIGANDMPNN_DIR")"
+        cd "$INSTALL_DIR"
+        git clone https://github.com/dauparas/LigandMPNN.git LigandMPNN
     else
-        log_warn "LigandMPNN directory already exists: $LIGANDMPNN_DIR"
+        log_warn "LigandMPNN already exists: $LIGANDMPNN_DIR"
     fi
 
     cd "$LIGANDMPNN_DIR"
@@ -250,12 +226,7 @@ install_mpnn() {
         log_warn "Conda environment '$MPNN_ENV' already exists"
     else
         log_info "Creating MPNN conda environment..."
-        if [[ -f "environments/ligandmpnn_env.yml" ]]; then
-            conda env create -f environments/ligandmpnn_env.yml -p "$CONDA_ENV_DIR/$MPNN_ENV" -y
-        else
-            log_error "environments/ligandmpnn_env.yml not found in $LIGANDMPNN_DIR"
-            return 1
-        fi
+        conda env create -f "$INSTALL_DIR/environments/ligandmpnn_env.yml" -p "$CONDA_ENV_DIR/$MPNN_ENV" -y
     fi
 
     log_success "LigandMPNN environment ready"

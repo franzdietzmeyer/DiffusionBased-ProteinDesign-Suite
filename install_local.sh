@@ -116,37 +116,40 @@ EOF
 
     # Install RFD3
     log_info "Installing RFDiffusion (RFD3)..."
-    if [[ ! -d "$SCRIPT_DIR/../rfd3_new/foundry" ]]; then
-        mkdir -p "$SCRIPT_DIR/.."
-        cd "$SCRIPT_DIR/.."
+
+    if [[ ! -d "$SCRIPT_DIR/foundry" ]]; then
         log_info "Cloning Foundry repository..."
-        git clone https://github.com/RosettaCommons/foundry.git rfd3_new/foundry || true
+        cd "$SCRIPT_DIR"
+        git clone https://github.com/RosettaCommons/foundry.git || true
+    else
+        log_warn "Foundry already cloned: $SCRIPT_DIR/foundry"
     fi
 
-    cd "$SCRIPT_DIR/../rfd3_new/foundry" 2>/dev/null || cd "$SCRIPT_DIR/../foundry"
     if ! conda env list | grep -q "rfd3"; then
         log_info "Creating RFD3 environment..."
-        conda env create -f environments/rfd3_env.yml -p "$CONDA_ENV_DIR/rfd3_env" -y
+        conda env create -f "$SCRIPT_DIR/environments/rfd3_env.yml" -p "$CONDA_ENV_DIR/rfd3_env" -y
     fi
     log_success "RFD3 ready"
 
     # Install MPNN
     log_info "Installing LigandMPNN..."
-    if [[ ! -d "$SCRIPT_DIR/../LigandMPNN" ]]; then
-        cd "$SCRIPT_DIR/.."
+    if [[ ! -d "$SCRIPT_DIR/LigandMPNN" ]]; then
+        cd "$SCRIPT_DIR"
         log_info "Cloning LigandMPNN..."
         git clone https://github.com/dauparas/LigandMPNN.git || true
+    else
+        log_warn "LigandMPNN already cloned: $SCRIPT_DIR/LigandMPNN"
     fi
 
-    cd "$SCRIPT_DIR/../LigandMPNN"
-    if [[ ! -d "model_params" ]]; then
+    if [[ ! -d "$SCRIPT_DIR/LigandMPNN/model_params" ]]; then
         log_info "Downloading LigandMPNN parameters..."
-        bash get_model_params.sh "./model_params" || true
+        cd "$SCRIPT_DIR/LigandMPNN"
+        bash get_model_params.sh "./model_params" || log_warn "Could not download parameters"
     fi
 
     if ! conda env list | grep -q "ligandmpnn"; then
         log_info "Creating MPNN environment..."
-        conda env create -f environments/ligandmpnn_env.yml -p "$CONDA_ENV_DIR/ligandmpnn_env" -y
+        conda env create -f "$SCRIPT_DIR/environments/ligandmpnn_env.yml" -p "$CONDA_ENV_DIR/ligandmpnn_env" -y
     fi
     log_success "LigandMPNN ready"
 
@@ -154,9 +157,8 @@ EOF
     log_info "Installing Chai (Structure Prediction)..."
     if ! conda env list | grep -q "chai"; then
         log_info "Creating Chai environment..."
-        cd "$SCRIPT_DIR"
-        if [[ -f "environments/chai_env.yml" ]]; then
-            conda env create -f environments/chai_env.yml -p "$CONDA_ENV_DIR/chai_env" -y
+        if [[ -f "$SCRIPT_DIR/environments/chai_env.yml" ]]; then
+            conda env create -f "$SCRIPT_DIR/environments/chai_env.yml" -p "$CONDA_ENV_DIR/chai_env" -y
         else
             log_warn "chai_env.yml not found, creating basic environment..."
             conda create -p "$CONDA_ENV_DIR/chai_env" python=3.10 -y
