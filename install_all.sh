@@ -206,23 +206,11 @@ install_rfd3() {
         log_warn "Conda environment '$RFD3_ENV' already exists"
     else
         log_info "Creating RFD3 conda environment..."
-        # Try to find and use environment YAML
-        ENV_FILE=""
         if [[ -f "environments/rfd3_env.yml" ]]; then
-            ENV_FILE="environments/rfd3_env.yml"
-        elif [[ -f "env/rfd3_env.yml" ]]; then
-            ENV_FILE="env/rfd3_env.yml"
-        fi
-
-        if [[ -n "$ENV_FILE" ]]; then
-            conda env create -f "$ENV_FILE" -p "$CONDA_ENV_DIR/$RFD3_ENV" -y
+            conda env create -f environments/rfd3_env.yml -p "$CONDA_ENV_DIR/$RFD3_ENV" -y
         else
-            log_warn "No environment YAML found, creating basic Python environment..."
-            conda create -p "$CONDA_ENV_DIR/$RFD3_ENV" python=3.12 -y
-            eval "$(conda shell.bash hook)"
-            conda activate "$CONDA_ENV_DIR/$RFD3_ENV"
-            pip install 'rc-foundry[rfd3]' || log_warn "Could not install rc-foundry, will need manual setup"
-            conda deactivate
+            log_error "environments/rfd3_env.yml not found in $RFD3_DIR"
+            return 1
         fi
     fi
 
@@ -262,22 +250,11 @@ install_mpnn() {
         log_warn "Conda environment '$MPNN_ENV' already exists"
     else
         log_info "Creating MPNN conda environment..."
-        ENV_FILE=""
         if [[ -f "environments/ligandmpnn_env.yml" ]]; then
-            ENV_FILE="environments/ligandmpnn_env.yml"
-        elif [[ -f "env/ligandmpnn_env.yml" ]]; then
-            ENV_FILE="env/ligandmpnn_env.yml"
-        fi
-
-        if [[ -n "$ENV_FILE" ]]; then
-            conda env create -f "$ENV_FILE" -p "$CONDA_ENV_DIR/$MPNN_ENV" -y
+            conda env create -f environments/ligandmpnn_env.yml -p "$CONDA_ENV_DIR/$MPNN_ENV" -y
         else
-            log_warn "No environment YAML found, creating basic Python environment..."
-            conda create -p "$CONDA_ENV_DIR/$MPNN_ENV" python=3.11 -y
-            eval "$(conda shell.bash hook)"
-            conda activate "$CONDA_ENV_DIR/$MPNN_ENV"
-            pip install -e . 2>/dev/null || log_warn "Could not install LigandMPNN, will need manual setup"
-            conda deactivate
+            log_error "environments/ligandmpnn_env.yml not found in $LIGANDMPNN_DIR"
+            return 1
         fi
     fi
 
