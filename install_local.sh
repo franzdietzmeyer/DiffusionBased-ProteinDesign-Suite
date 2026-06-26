@@ -125,10 +125,33 @@ EOF
         log_warn "Foundry already cloned: $SCRIPT_DIR/foundry"
     fi
 
-    if ! conda env list | grep -q "rfd3"; then
-        log_info "Creating RFD3 environment..."
-        conda env create -f "$SCRIPT_DIR/environments/rfd3_env.yml" -p "$CONDA_ENV_DIR/rfd3_env" -y
+    if ! conda env list | grep -q "rfd3_env"; then
+        log_info "Creating RFD3 environment from YAML..."
+        if conda env create -f "$SCRIPT_DIR/environments/rfd3_env.yml" -p "$CONDA_ENV_DIR/rfd3_env" -y; then
+            log_success "RFD3 environment created"
+        else
+            log_error "Failed to create RFD3 environment"
+            return 1
+        fi
+    else
+        log_warn "RFD3 environment already exists"
     fi
+
+    # Install rc-foundry package in the environment
+    log_info "Installing rc-foundry package..."
+    eval "$(conda shell.bash hook)"
+    if conda activate "$CONDA_ENV_DIR/rfd3_env" 2>/dev/null; then
+        if pip install 'rc-foundry[all]' -q 2>/dev/null; then
+            log_success "rc-foundry installed"
+        else
+            log_warn "Could not install rc-foundry (may already be installed)"
+        fi
+        conda deactivate 2>/dev/null
+    else
+        log_error "Could not activate RFD3 environment"
+        return 1
+    fi
+
     log_success "RFD3 ready"
 
     # Install MPNN
