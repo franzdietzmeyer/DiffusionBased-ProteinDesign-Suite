@@ -31,16 +31,14 @@ PARENT_DIR="$(dirname "$INSTALL_DIR")"
 
 # Conda environment directory (with smart defaults)
 if [[ -z "$CONDA_ENV_DIR" ]]; then
-    # If running in conda-envs/ subdirectory, use absolute path
-    if [[ "$INSTALL_DIR" == *"conda-envs"* ]]; then
-        CONDA_ENV_DIR="$(cd "$INSTALL_DIR" && pwd)"
+    # Try local conda-envs/ first
+    if mkdir -p "$INSTALL_DIR/conda-envs" 2>/dev/null; then
+        CONDA_ENV_DIR="$(cd "$INSTALL_DIR/conda-envs" && pwd)"
     else
-        # Otherwise use relative path or /work2 default
-        if [[ -w "conda-envs/" ]]; then
-            CONDA_ENV_DIR="$(cd "$INSTALL_DIR/conda-envs" 2>/dev/null && pwd)" || CONDA_ENV_DIR="/work2/fd55fani-conda"
-        else
-            CONDA_ENV_DIR="/work2/fd55fani-conda"
-        fi
+        # Fall back to system directory
+        CONDA_ENV_DIR="/opt/conda/envs"
+        mkdir -p "$CONDA_ENV_DIR" 2>/dev/null || CONDA_ENV_DIR="$HOME/conda-envs"
+        mkdir -p "$CONDA_ENV_DIR"
     fi
 fi
 
@@ -65,11 +63,16 @@ if [[ -z "$LIGANDMPNN_DIR" ]]; then
     fi
 fi
 
-# Resolve to absolute paths
-CONDA_ENV_DIR="$(cd "$CONDA_ENV_DIR" 2>/dev/null && pwd)" || CONDA_ENV_DIR="${CONDA_ENV_DIR}"
-CHECKPOINT_DIR="$(mkdir -p "$CHECKPOINT_DIR" && cd "$CHECKPOINT_DIR" && pwd)"
-RFD3_DIR="$(mkdir -p "$(dirname "$RFD3_DIR")" && echo "$(dirname "$RFD3_DIR")/$(basename "$RFD3_DIR")")"
-LIGANDMPNN_DIR="$(mkdir -p "$(dirname "$LIGANDMPNN_DIR")" && echo "$(dirname "$LIGANDMPNN_DIR")/$(basename "$LIGANDMPNN_DIR")")"
+# Resolve to absolute paths (safely)
+if [[ -d "$CONDA_ENV_DIR" ]]; then
+    CONDA_ENV_DIR="$(cd "$CONDA_ENV_DIR" && pwd)"
+fi
+
+mkdir -p "$CHECKPOINT_DIR"
+CHECKPOINT_DIR="$(cd "$CHECKPOINT_DIR" && pwd)"
+
+mkdir -p "$(dirname "$RFD3_DIR")"
+mkdir -p "$(dirname "$LIGANDMPNN_DIR")"
 
 # Conda env names
 RFD3_ENV="rfd3_env"
@@ -203,11 +206,23 @@ install_rfd3() {
         log_warn "Conda environment '$RFD3_ENV' already exists"
     else
         log_info "Creating RFD3 conda environment..."
+        # Try to find and use environment YAML
+        ENV_FILE=""
         if [[ -f "environments/rfd3_env.yml" ]]; then
-            conda env create -f environments/rfd3_env.yml -p "$CONDA_ENV_DIR/$RFD3_ENV" -y
+            ENV_FILE="environments/rfd3_env.yml"
+        elif [[ -f "env/rfd3_env.yml" ]]; then
+            ENV_FILE="env/rfd3_env.yml"
+        fi
+
+        if [[ -n "$ENV_FILE" ]]; then
+            conda env create -f "$ENV_FILE" -p "$CONDA_ENV_DIR/$RFD3_ENV" -y
         else
-            log_error "environments/rfd3_env.yml not found in $RFD3_DIR"
-            return 1
+            log_warn "No environment YAML found, creating basic Python environment..."
+            conda create -p "$CONDA_ENV_DIR/$RFD3_ENV" python=3.12 -y
+            eval "$(conda shell.bash hook)"
+            conda activate "$CONDA_ENV_DIR/$RFD3_ENV"
+            pip install 'rc-foundry[rfd3]' || log_warn "Could not install rc-foundry, will need manual setup"
+            conda deactivate
         fi
     fi
 
@@ -247,11 +262,22 @@ install_mpnn() {
         log_warn "Conda environment '$MPNN_ENV' already exists"
     else
         log_info "Creating MPNN conda environment..."
+        ENV_FILE=""
         if [[ -f "environments/ligandmpnn_env.yml" ]]; then
-            conda env create -f environments/ligandmpnn_env.yml -p "$CONDA_ENV_DIR/$MPNN_ENV" -y
+            ENV_FILE="environments/ligandmpnn_env.yml"
+        elif [[ -f "env/ligandmpnn_env.yml" ]]; then
+            ENV_FILE="env/ligandmpnn_env.yml"
+        fi
+
+        if [[ -n "$ENV_FILE" ]]; then
+            conda env create -f "$ENV_FILE" -p "$CONDA_ENV_DIR/$MPNN_ENV" -y
         else
-            log_error "environments/ligandmpnn_env.yml not found in $LIGANDMPNN_DIR"
-            return 1
+            log_warn "No environment YAML found, creating basic Python environment..."
+            conda create -p "$CONDA_ENV_DIR/$MPNN_ENV" python=3.11 -y
+            eval "$(conda shell.bash hook)"
+            conda activate "$CONDA_ENV_DIR/$MPNN_ENV"
+            pip install -e . 2>/dev/null || log_warn "Could not install LigandMPNN, will need manual setup"
+            conda deactivate
         fi
     fi
 
