@@ -44,6 +44,33 @@ A modular, production-ready pipeline for **protein design and structure predicti
 
 ---
 
+## 🚀 Quick Start
+
+**New users:** Start here!
+
+```bash
+bash install_all.sh
+./submit_design_pipeline.sh --config config/rfd3_compact_3epi.yaml
+```
+
+👉 See [QUICKSTART.md](QUICKSTART.md) for detailed guide and troubleshooting.
+
+---
+
+## 📖 Table of Contents
+
+- [Quick Start](#-quick-start) — Get up and running in minutes
+- [Installation Guide](#-installation-guide) — Automated or manual setup
+- [Features](#features) — What this pipeline offers
+- [Pipeline Overview](#pipeline-overview) — How it works
+- [Configuration](#configuration) — Customize your designs
+- [Running the Pipeline](#running-the-pipeline) — Submit jobs and monitor
+- [Output & Results](#output--results) — Understanding the results
+- [Troubleshooting](#troubleshooting) — Common issues
+- [External Resources](#external-resources) — Links to original tools
+
+---
+
 ## Features
 
 - **Checkpoint-based resumption** — Resume from any stage without recalculating earlier stages
@@ -54,10 +81,42 @@ A modular, production-ready pipeline for **protein design and structure predicti
 - **Configuration-driven** — Single YAML file controls all parameters
 - **Cluster support** — Flexible partition selection (paula/clara)
 - **Output organization** — Automatic directory structure with results filtering
+- **Automated installation** — Single-command setup with `install_all.sh`
 
 ---
 
 ## 🔧 Installation Guide
+
+### ⚡ Quick Installation (Recommended)
+
+**Automated installation with a single command:**
+
+```bash
+bash install_all.sh
+```
+
+This script automatically:
+- ✅ Checks prerequisites (Python, Conda, Git, GPU)
+- ✅ Clones all repositories (Foundry, LigandMPNN)
+- ✅ Creates all conda environments (RFD3, MPNN, Chai, Boltz)
+- ✅ Downloads model checkpoints (~30-45 min)
+- ✅ Verifies installations
+- ✅ Prints setup summary
+
+**Installation time:** ~45-90 minutes (depending on internet speed)
+
+**Skip checkpoint download for faster setup:**
+```bash
+bash install_all.sh --skip-checkpoints
+```
+
+**For more options and troubleshooting, see:** [QUICKSTART.md](QUICKSTART.md)
+
+---
+
+### Manual Installation (Detailed)
+
+If you prefer to install components manually, follow these steps:
 
 ### Prerequisites
 
@@ -163,24 +222,31 @@ Boltz is already installed in the environment.
 
 ### Verify Installations
 
-Test that each module is correctly installed:
+**If using `install_all.sh`:**
+The verification is done automatically at the end of installation.
+
+**Manual verification (if installing manually):**
 
 ```bash
 # Test RFD3
-source /path/to/rfd3_env/bin/activate
+conda activate /work2/fd55fani-conda/rfd3_env
 python -c "from foundry import rfd3; print('RFD3 OK')"
+conda deactivate
 
 # Test LigandMPNN
-source /path/to/ligandmpnn_env/bin/activate
+conda activate /work2/fd55fani-conda/ligandmpnn_env
 python -c "import ligandmpnn; print('LigandMPNN OK')"
+conda deactivate
 
 # Test Chai
-source /path/to/chai_env/bin/activate
+conda activate /work2/fd55fani-conda/chai_env
 python -c "from chai_lab import chai1; print('Chai OK')"
+conda deactivate
 
 # Test Boltz
-source /path/to/boltz_env/bin/activate
+conda activate /work2/fd55fani-conda/boltz203
 python -c "import boltz; print('Boltz OK')"
+conda deactivate
 ```
 
 ---
@@ -622,13 +688,47 @@ This pipeline implementation is provided as-is for research purposes.
 
 ---
 
+## Getting Help
+
+### Installation Issues?
+```bash
+bash install_all.sh --help
+```
+See [QUICKSTART.md](QUICKSTART.md) for detailed troubleshooting.
+
+### Pipeline Issues?
+1. Check the **Troubleshooting** section in [QUICKSTART.md](QUICKSTART.md)
+2. Review configuration examples in `config/`
+3. Check log files:
+   ```bash
+   tail -100 logs/stage1_*.log
+   tail -100 logs/stage2_*.log
+   ```
+4. Monitor jobs:
+   ```bash
+   ./scripts/monitor_pipeline.sh --live
+   squeue -u $USER
+   ```
+
+### Common Questions?
+- **How do I customize parameters?** → Edit `config/rfd3_*.yaml`
+- **How do I switch folding engines?** → Set `engine: "chai" | "alphafold" | "boltz"` in config
+- **Can I resume interrupted runs?** → Yes! Use checkpoint system (automatic)
+- **How do I parallelize across machines?** → Run different configs on different machines
+
 ## Support
 
-For issues and questions:
-1. Check the **Troubleshooting** section above
+For bugs, features, or documentation improvements:
+1. Check existing documentation: [README.md](README.md), [QUICKSTART.md](QUICKSTART.md)
 2. Review configuration examples in `config/`
 3. Check log files: `logs/stage1_*.log`, `logs/stage2_*.log`
 4. Verify SLURM job status: `squeue -j <job_id>`
+5. Run diagnostics:
+   ```bash
+   nvidia-smi              # Check GPU
+   conda env list          # Check environments
+   python --version        # Check Python
+   ```
 
 ---
 
@@ -642,4 +742,6 @@ For issues and questions:
 
 ---
 
-**Last Updated**: 2026-06-25  
+**Last Updated**: 2026-06-26
+**Installation Script Added**: `install_all.sh` for automated setup
+**Quick Start Guide**: See [QUICKSTART.md](QUICKSTART.md)  

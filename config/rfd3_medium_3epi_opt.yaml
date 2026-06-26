@@ -1,0 +1,110 @@
+# Optimized Design Pipeline Configuration - Medium 3epi
+# Relaxed constraints for better design diversity
+# Created: 2026-06-26
+
+# ============================================================================
+# STAGE 1: RFDiffusion Configuration (OPTIMIZED)
+# ============================================================================
+rfd3:
+  settings_json: "/work2/fd55fani-genie3/pipeline_scaffolding/jsons/rfd3_medium_3epi.json"
+  checkpoint: "/work2/fd55fani-genie3/rf3/foundry/checkpoints/rfd3_latest.ckpt"
+  batch_size: 4
+  n_batches: 10                                   # OPT: Increased from 5 (more designs)
+  inference_sampler_step_scale: 2.0              # OPT: Increased from 1.5 (more diverse sampling)
+  foundry_path: "/work2/fd55fani-genie3/rfd3_new/foundry/foundry_new"
+
+# ============================================================================
+# STAGE 1: Sequence Design Configuration (OPTIMIZED)
+# ============================================================================
+sequence_design:
+  model_type: "soluble"
+  temperature: 0.15                              # OPT: Increased from 0.1 (more diverse sequences)
+  seqs_per_backbone: 5
+  batch_size: 1
+  conda_env: "/work2/fd55fani-conda/ligandmpnn_env"
+  ligandmpnn_path: "/work2/fd55fani-genie3/LigandMPNN"
+
+# ============================================================================
+# STAGE 2: Structure Prediction & Validation
+# ============================================================================
+folding_engine:
+  engine: "chai"
+
+  chai:
+    conda_env: "/work2/fd55fani-conda/chai_env"
+    recycles: 3
+    timesteps: 200
+    use_esm_embeddings: true
+
+  alphafold:
+    hpc_module: "AlphaFold"
+    data_dir: "/software/databases/alphafold"
+    model_preset: "multimer"
+    max_template_date: "2022-01-01"
+
+  boltz:
+    conda_env: "/work2/fd55fani-conda/boltz203"
+    num_recycles: 4
+
+# ============================================================================
+# Optional: Sequence Optimization Round
+# ============================================================================
+sequence_optimization:
+  enabled: true
+  temperature: 0.2
+  seqs_per_backbone: 3
+
+# ============================================================================
+# Ligand/Cofactor Configuration
+# ============================================================================
+ligands:
+  smiles_list:
+    - "VO4 [O-][V](=O)([O-])[O-]"
+  cofactor_name: "VO4"
+  min_cofactor_sasa: null
+
+# ============================================================================
+# Filtering Thresholds (OPTIMIZED)
+# ============================================================================
+filters:
+  min_plddt_initial: 40.0                        # OPT: Relaxed from 45.0
+  min_plddt_final: 50.0
+  min_motif_plddt: 55.0
+  max_backbone_rmsd: 10.0                        # OPT: Relaxed from 4.0 Å → 10.0 Å
+  max_motif_rmsd: 3.5                            # Keep tight for epitope
+  fixed_residues_json: ""
+
+# ============================================================================
+# Fixed Residue Configuration
+# ============================================================================
+fixed_residues:
+  template_pdb_dir: ""
+
+# ============================================================================
+# Output & Logging Configuration
+# ============================================================================
+output:
+  work_directory: "/work2/fd55fani-genie3/pipeline_scaffolding/HA_MES_outputs"
+  subdirectory: ""
+
+  logs_dir: "logs"
+  scripts_dir: "scripts"
+
+# ============================================================================
+# Hardware & Cluster Configuration
+# ============================================================================
+hardware:
+  partition: "paula"
+  cpus_per_task: 4
+  memory_per_task: "32G"
+  gpus_per_task: 1
+  time_limit: "10:00:00"
+
+# ============================================================================
+# Advanced Options
+# ============================================================================
+advanced:
+  force_rerun_stage: null
+  keep_intermediate_files: false
+  validation_strict: true
+  parallel_mpnn_jobs: 1
