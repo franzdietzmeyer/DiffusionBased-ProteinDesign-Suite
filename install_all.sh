@@ -27,12 +27,49 @@ log_error() { echo -e "${RED}[✗]${NC} $1"; }
 # ============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="${INSTALL_DIR:-$SCRIPT_DIR}"
-CONDA_ENV_DIR="${CONDA_ENV_DIR:-/work2/fd55fani-conda}"
+PARENT_DIR="$(dirname "$INSTALL_DIR")"
+
+# Conda environment directory (with smart defaults)
+if [[ -z "$CONDA_ENV_DIR" ]]; then
+    # If running in conda-envs/ subdirectory, use absolute path
+    if [[ "$INSTALL_DIR" == *"conda-envs"* ]]; then
+        CONDA_ENV_DIR="$(cd "$INSTALL_DIR" && pwd)"
+    else
+        # Otherwise use relative path or /work2 default
+        if [[ -w "conda-envs/" ]]; then
+            CONDA_ENV_DIR="$(cd "$INSTALL_DIR/conda-envs" 2>/dev/null && pwd)" || CONDA_ENV_DIR="/work2/fd55fani-conda"
+        else
+            CONDA_ENV_DIR="/work2/fd55fani-conda"
+        fi
+    fi
+fi
+
 CHECKPOINT_DIR="${CHECKPOINT_DIR:-$INSTALL_DIR/checkpoints}"
 
-# Module paths
-RFD3_DIR="${RFD3_DIR:-$INSTALL_DIR/../rfd3_new/foundry}"
-LIGANDMPNN_DIR="${LIGANDMPNN_DIR:-$INSTALL_DIR/../LigandMPNN}"
+# Module paths (with fallback discovery)
+if [[ -z "$RFD3_DIR" ]]; then
+    if [[ -d "$PARENT_DIR/rfd3_new/foundry" ]]; then
+        RFD3_DIR="$PARENT_DIR/rfd3_new/foundry"
+    elif [[ -d "$PARENT_DIR/foundry" ]]; then
+        RFD3_DIR="$PARENT_DIR/foundry"
+    else
+        RFD3_DIR="$PARENT_DIR/foundry"  # Will be cloned here if doesn't exist
+    fi
+fi
+
+if [[ -z "$LIGANDMPNN_DIR" ]]; then
+    if [[ -d "$PARENT_DIR/LigandMPNN" ]]; then
+        LIGANDMPNN_DIR="$PARENT_DIR/LigandMPNN"
+    else
+        LIGANDMPNN_DIR="$PARENT_DIR/LigandMPNN"  # Will be cloned here if doesn't exist
+    fi
+fi
+
+# Resolve to absolute paths
+CONDA_ENV_DIR="$(cd "$CONDA_ENV_DIR" 2>/dev/null && pwd)" || CONDA_ENV_DIR="${CONDA_ENV_DIR}"
+CHECKPOINT_DIR="$(mkdir -p "$CHECKPOINT_DIR" && cd "$CHECKPOINT_DIR" && pwd)"
+RFD3_DIR="$(mkdir -p "$(dirname "$RFD3_DIR")" && echo "$(dirname "$RFD3_DIR")/$(basename "$RFD3_DIR")")"
+LIGANDMPNN_DIR="$(mkdir -p "$(dirname "$LIGANDMPNN_DIR")" && echo "$(dirname "$LIGANDMPNN_DIR")/$(basename "$LIGANDMPNN_DIR")")"
 
 # Conda env names
 RFD3_ENV="rfd3_env"
@@ -52,6 +89,9 @@ while [[ $# -gt 0 ]]; do
         --skip-checkpoints) SKIP_CHECKPOINTS=true; shift ;;
         --conda-env-dir) CONDA_ENV_DIR="$2"; shift 2 ;;
         --install-dir) INSTALL_DIR="$2"; shift 2 ;;
+        --rfd3-dir) RFD3_DIR="$2"; shift 2 ;;
+        --mpnn-dir) LIGANDMPNN_DIR="$2"; shift 2 ;;
+        --checkpoint-dir) CHECKPOINT_DIR="$2"; shift 2 ;;
         -h|--help) show_help; exit 0 ;;
         *) log_error "Unknown option: $1"; exit 1 ;;
     esac
@@ -70,14 +110,29 @@ Usage: bash install_all.sh [options]
 Options:
   --skip-verify          Skip verification tests after installation
   --skip-checkpoints     Skip checkpoint downloads
-  --conda-env-dir DIR    Custom conda environment directory (default: /work2/fd55fani-conda)
-  --install-dir DIR      Custom installation directory (default: script directory)
+  --conda-env-dir DIR    Custom conda environment directory
+                         Can be relative (e.g., conda-envs/) or absolute
+                         Default: auto-detected or /work2/fd55fani-conda
+  --rfd3-dir DIR         Custom RFD3/Foundry installation directory
+  --mpnn-dir DIR         Custom LigandMPNN installation directory
+  --checkpoint-dir DIR   Custom checkpoint directory
   -h, --help            Show this help message
 
 Examples:
+  # Use local conda-envs directory
+  bash install_all.sh --conda-env-dir conda-envs/
+
+  # Custom locations
+  bash install_all.sh \\
+    --conda-env-dir ~/conda-envs \\
+    --rfd3-dir ~/software/foundry \\
+    --mpnn-dir ~/software/LigandMPNN
+
+  # Skip checkpoints
+  bash install_all.sh --skip-checkpoints
+
+  # Minimal
   bash install_all.sh
-  bash install_all.sh --skip-verify
-  bash install_all.sh --conda-env-dir /custom/path
 
 EOF
 }
@@ -364,12 +419,20 @@ ${BOLD}${BLUE}╔═════════════════════
 ${BOLD}${BLUE}║  Multi-Stage Protein Design Pipeline - Master Installer       ║${NC}
 ${BOLD}${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}
 
-${BOLD}Configuration:${NC}
+${BOLD}Installation Paths:${NC}
+  Script Location:      $SCRIPT_DIR
   Install Directory:    $INSTALL_DIR
-  Conda Env Directory:  $CONDA_ENV_DIR
+  Parent Directory:     $PARENT_DIR
+
+${BOLD}Environment & Module Paths:${NC}
+  Conda Environments:   $CONDA_ENV_DIR
   Checkpoint Directory: $CHECKPOINT_DIR
-  RFD3 Path:           $RFD3_DIR
-  LigandMPNN Path:     $LIGANDMPNN_DIR
+  RFD3 Installation:    $RFD3_DIR
+  LigandMPNN Path:      $LIGANDMPNN_DIR
+
+${BOLD}Options:${NC}
+  Verify Installs:      ${SKIP_VERIFY:-false}
+  Download Checkpoints: ${SKIP_CHECKPOINTS:-true}
 
 Starting installation at $(date '+%Y-%m-%d %H:%M:%S')
 ${BOLD}This may take 30-60 minutes depending on your internet speed and GPU${NC}
