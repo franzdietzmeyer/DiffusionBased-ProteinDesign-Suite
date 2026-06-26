@@ -155,14 +155,21 @@ EOF
 
     # Install Chai
     log_info "Installing Chai (Structure Prediction)..."
-    if ! conda env list | grep -q "chai"; then
+    if ! conda env list | grep -q "chai_env"; then
         log_info "Creating Chai environment..."
         if [[ -f "$SCRIPT_DIR/environments/chai_env.yml" ]]; then
-            conda env create -f "$SCRIPT_DIR/environments/chai_env.yml" -p "$CONDA_ENV_DIR/chai_env" -y
+            if conda env create -f "$SCRIPT_DIR/environments/chai_env.yml" -p "$CONDA_ENV_DIR/chai_env" -y; then
+                log_success "Chai environment created"
+            else
+                log_error "Failed to create Chai environment from YAML"
+                return 1
+            fi
         else
-            log_warn "chai_env.yml not found, creating basic environment..."
-            conda create -p "$CONDA_ENV_DIR/chai_env" python=3.10 -y
+            log_error "chai_env.yml not found at $SCRIPT_DIR/environments/chai_env.yml"
+            return 1
         fi
+    else
+        log_warn "Chai environment already exists"
     fi
     log_success "Chai ready"
 
@@ -171,12 +178,18 @@ EOF
         log_info "Downloading RFD3 checkpoints..."
         mkdir -p "$SCRIPT_DIR/checkpoints"
         eval "$(conda shell.bash hook)"
-        conda activate "$CONDA_ENV_DIR/rfd3_env" 2>/dev/null && {
+        if conda activate "$CONDA_ENV_DIR/rfd3_env" 2>/dev/null; then
             if [[ ! -f "$SCRIPT_DIR/checkpoints/rfd3_latest.ckpt" ]]; then
-                foundry install rfd3 --checkpoint-dir "$SCRIPT_DIR/checkpoints" || log_warn "Checkpoint download failed"
+                if foundry install rfd3 --checkpoint-dir "$SCRIPT_DIR/checkpoints" 2>/dev/null; then
+                    log_success "Checkpoints downloaded"
+                else
+                    log_warn "Checkpoint download failed (foundry command not available, can download manually)"
+                fi
             fi
-            conda deactivate
-        } || log_warn "Could not activate RFD3 environment for checkpoints"
+            conda deactivate 2>/dev/null
+        else
+            log_warn "Could not activate RFD3 environment for checkpoints"
+        fi
     fi
     log_success "Installation complete!"
 
