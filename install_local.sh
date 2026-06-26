@@ -123,10 +123,10 @@ EOF
         git clone https://github.com/RosettaCommons/foundry.git rfd3_new/foundry || true
     fi
 
-    cd "$SCRIPT_DIR/../rfd3_new/foundry"
+    cd "$SCRIPT_DIR/../rfd3_new/foundry" 2>/dev/null || cd "$SCRIPT_DIR/../foundry"
     if ! conda env list | grep -q "rfd3"; then
         log_info "Creating RFD3 environment..."
-        conda env create -f environments/rfd3_env.yml -p "$CONDA_ENV_DIR/rfd3_env" -y || true
+        conda env create -f environments/rfd3_env.yml -p "$CONDA_ENV_DIR/rfd3_env" -y
     fi
     log_success "RFD3 ready"
 
@@ -146,7 +146,7 @@ EOF
 
     if ! conda env list | grep -q "ligandmpnn"; then
         log_info "Creating MPNN environment..."
-        conda env create -f environments/ligandmpnn_env.yml -p "$CONDA_ENV_DIR/ligandmpnn_env" -y || true
+        conda env create -f environments/ligandmpnn_env.yml -p "$CONDA_ENV_DIR/ligandmpnn_env" -y
     fi
     log_success "LigandMPNN ready"
 
@@ -156,9 +156,10 @@ EOF
         log_info "Creating Chai environment..."
         cd "$SCRIPT_DIR"
         if [[ -f "environments/chai_env.yml" ]]; then
-            conda env create -f environments/chai_env.yml -p "$CONDA_ENV_DIR/chai_env" -y || true
+            conda env create -f environments/chai_env.yml -p "$CONDA_ENV_DIR/chai_env" -y
         else
-            conda create -p "$CONDA_ENV_DIR/chai_env" python=3.10 -y || true
+            log_warn "chai_env.yml not found, creating basic environment..."
+            conda create -p "$CONDA_ENV_DIR/chai_env" python=3.10 -y
         fi
     fi
     log_success "Chai ready"
