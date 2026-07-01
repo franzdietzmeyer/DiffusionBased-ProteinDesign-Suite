@@ -112,6 +112,10 @@ MPNN_PATH=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(
 MPNN_CONDA=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['mpnn_conda'])")
 MPNN_MODEL=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['mpnn_model'])")
 
+# Extract and format SMILES for Chai/folding engines as bash array
+# Use readarray to properly parse the Python output into a bash array
+mapfile -t SMILES_ARRAY < <(echo "$CONFIG_DATA" | python3 -c "import sys, json; smiles_list = json.load(sys.stdin)['smiles']; [print('--smiles') or print(s) for s in smiles_list]")
+
 DESIGN_DIR="$WORK_DIR/design_generation/$SUBDIR"
 MPNN_OUTPUT="$DESIGN_DIR/output/mpnn_output"
 MPNN_BACKBONES="$MPNN_OUTPUT/backbones"
@@ -156,17 +160,15 @@ else
     mkdir -p "$FOLDING_OUTPUT"
 
     if [[ "$FOLDING_ENGINE" == "chai" ]]; then
-        module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
-
         "$CHAI_ENV/bin/python" "$SCRIPT_DIR/design_refolding.py" \
             --input_dir "$MPNN_BACKBONES" \
             --output_dir "$FOLDING_OUTPUT" \
             --engine chai \
             --recycles "$CHAI_RECYCLES" \
-            --timesteps "$CHAI_TIMESTEPS"
+            --timesteps "$CHAI_TIMESTEPS" \
+            "${SMILES_ARRAY[@]}"
 
         FOLDING_EXIT_CODE=$?
-        conda deactivate
 
         if [[ $FOLDING_EXIT_CODE -ne 0 ]]; then
             echo "✗ Folding failed with exit code $FOLDING_EXIT_CODE"
@@ -195,7 +197,8 @@ else
             --input_dir "$MPNN_BACKBONES" \
             --output_dir "$FOLDING_OUTPUT" \
             --engine alphafold \
-            $AF_ARGS
+            $AF_ARGS \
+            "${SMILES_ARRAY[@]}"
 
         FOLDING_EXIT_CODE=$?
 
@@ -209,13 +212,15 @@ else
 
     elif [[ "$FOLDING_ENGINE" == "boltz" ]]; then
         # Activate Boltz environment and run
-        source "$BOLTZ_ENV/bin/activate"
+        module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh
+        conda activate boltz
 
         python3 "$SCRIPT_DIR/design_refolding.py" \
             --input_dir "$MPNN_BACKBONES" \
             --output_dir "$FOLDING_OUTPUT" \
             --engine boltz \
-            --recycles "$BOLTZ_RECYCLES"
+            --recycles "$BOLTZ_RECYCLES" \
+            "${SMILES_ARRAY[@]}"
 
         FOLDING_EXIT_CODE=$?
         conda deactivate
@@ -259,8 +264,6 @@ else
     [[ -n "$COFACTOR" ]] && FILTER_ARGS="$FILTER_ARGS --cofactor $COFACTOR"
     [[ -n "$MIN_SASA" && "$MIN_SASA" != "None" ]] && FILTER_ARGS="$FILTER_ARGS --min_cofactor_sasa $MIN_SASA"
 
-    module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
-
     "$CHAI_ENV/bin/python" "$SCRIPT_DIR/design_helper_script.py" \
         --input "$FOLDING_OUTPUT" \
         --output_dir "$ANALYSIS_OUTPUT" \
@@ -269,7 +272,6 @@ else
         $FILTER_ARGS
 
     ANALYSIS_EXIT_CODE=$?
-    conda deactivate
 
     if [[ $ANALYSIS_EXIT_CODE -ne 0 ]]; then
         echo "✗ Analysis failed with exit code $ANALYSIS_EXIT_CODE"
@@ -371,17 +373,13 @@ except Exception:
             --batch_size 1
 
         # Run folding on optimized sequences
-        module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
-
         "$CHAI_ENV/bin/python" "$SCRIPT_DIR/design_refolding.py" \
             --input_dir "$OPT_MPNN_OUTPUT/backbones" \
             --output_dir "$OPT_FOLDING_OUTPUT" \
-            --engine "$FOLDING_ENGINE"
-
-        conda deactivate
+            --engine "$FOLDING_ENGINE" \
+            "${SMILES_ARRAY[@]}"
 
         # Final analysis on optimized designs
-        module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
 
         FILTER_ARGS="--min_plddt $MIN_PLDDT --min_motif_plddt $MIN_MOTIF_PLDDT --max_rmsd $MAX_RMSD --max_motif_rmsd $MAX_MOTIF_RMSD"
         [[ -n "$FIXED_RES_JSON" ]] && FILTER_ARGS="$FILTER_ARGS --fixed_res_json $FIXED_RES_JSON"
@@ -394,8 +392,6 @@ except Exception:
             --passed_output_dir "$OPT_RESULTS/best_designs" \
             --template_pdbs "$RFD3_BACKBONES" \
             $FILTER_ARGS
-
-        conda deactivate
 
         echo "✓ Optimization completed successfully"
         echo "$(date)" > "$CHECKPOINT_DIR/optimization.checkpoint"
@@ -410,14 +406,11 @@ echo "==========================================================================
 PLOTS_DIR="$DESIGN_DIR/plots"
 mkdir -p "$PLOTS_DIR"
 
-module load Anaconda3; source /software/all/Anaconda3/2024.02-1/etc/profile.d/conda.sh; conda activate chai_env
-
-python3 "$SCRIPT_DIR/plot_analysis.py" \
+"$CHAI_ENV/bin/python" "$SCRIPT_DIR/plot_analysis.py" \
     --output_dir "$DESIGN_DIR/output" \
     --plot_dir "$PLOTS_DIR"
 
 PLOT_EXIT_CODE=$?
-conda deactivate
 
 if [[ $PLOT_EXIT_CODE -eq 0 ]]; then
     echo "✓ Plots generated successfully"

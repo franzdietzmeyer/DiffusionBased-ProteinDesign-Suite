@@ -585,6 +585,300 @@ Key metrics saved in `analysis/metrics.csv`:
 
 ---
 
+## 📊 Analysis & Comparison Tools
+
+### Multi-Run Analysis: `run_analysis.sh`
+
+After 5 parallel design runs complete, aggregate and analyze results across all runs.
+
+**Usage:**
+```bash
+./run_analysis.sh --config config/sialinbinder_with_ligand.yaml
+```
+
+**What it does:**
+1. ✅ Finds all 5 run directories (Run 1-5)
+2. ✅ Loads top 20 structures from each run (100 total)
+3. ✅ Aggregates metrics (ipTM, pTM, pLDDT, RMSD)
+4. ✅ Calculates global ranking across all runs
+5. ✅ Generates visualization plots
+6. ✅ Exports results to CSV
+7. ✅ Collects top 20 globally into `top20_global_all_runs/`
+
+**Output Files:**
+- `all_structures_[name]_ligand.csv` — All 100 structures with metrics
+- `top100_structures_[name]_ligand.csv` — Top 100 ranked globally
+- `all_structures_[name]_ligand.png` — Scatter plot: all structures
+- `top100_structures_[name]_ligand.png` — Scatter plot: top 100 only
+- `perrun_statistics_[name]_ligand.png` — Box plots per run
+- `top100_global_ranking_[name]_ligand.json` — Full ranking data
+- `top20_global_all_runs/` — Folder with 100 best structures
+
+**Key Metrics (Ligand Designs):**
+
+| Metric | Target | Meaning |
+|--------|--------|---------|
+| **Best Score** | >0.92 | Peak performance |
+| **Mean Score** | >0.88 | Average quality |
+| **Best ipTM** | >0.93 | Best binding prediction |
+| **Mean ipTM** | >0.88 | Consistent binding quality |
+| **Best pLDDT** | >92 | Confident prediction |
+| **Mean pLDDT** | >89 | Consistent confidence |
+
+---
+
+### Job Monitoring: `monitor_jobs.sh`
+
+Check completion status of all design approaches at once.
+
+**Usage:**
+```bash
+./monitor_jobs.sh
+```
+
+**Output:**
+```
+Config                                   Status          Folder    
+------                                   ------          ------    
+sialinbinder_with_ligand                 ✓ COMPLETE    top20     
+sialinbinder_exposed                     ✓ COMPLETE    top20     
+sialinbinder_partexposed                 ⏳ RUNNING     output    
+sialinbinder_pocket_refined              ✗ NOT FOUND    -     
+```
+
+**Indicators:**
+- ✓ **COMPLETE** — Job finished (has `top20/` or `results/`)
+- ⏳ **RUNNING** — In progress (has `output/` folder)
+- ✗ **NOT FOUND** — Directory doesn't exist
+
+---
+
+### Cross-Approach Comparison: `compare_approaches.sh`
+
+Compare multiple design approaches to find the best strategy.
+
+**Usage:**
+```bash
+./compare_approaches.sh
+```
+
+**Output Tables:**
+
+1. **Overall Ranking by Best Score** — Which approach has best single design?
+2. **Ranking by Mean Score** — Which is most consistent?
+3. **Ranking by ipTM/pTM** — Which has best ligand binding?
+4. **Top 3 Recommendations** — Quick summary
+
+**Example Output:**
+```
+OVERALL RANKING BY BEST SCORE
+Approach                Best Score  Mean Score  Best ipTM  Mean ipTM
+sialinbinder_exposed       0.9418      0.9291     0.9438     0.9308
+sialinbinder_partexposed   0.9433      0.9282     0.9500     0.9272
+sialinbinder_with_ligand   0.9299      0.8905     0.9315     0.8882
+
+TOP 3 RECOMMENDED APPROACHES
+1️⃣  BEST SINGLE DESIGN:    sialinbinder_partexposed (0.9433)
+2️⃣  MOST CONSISTENT:       sialinbinder_exposed (Mean: 0.9291, Std: 0.0063)
+3️⃣  BEST LIGAND BINDING:   sialinbinder_exposed (Mean ipTM: 0.9308)
+```
+
+**Output:**
+- `sialinbinder_approach_comparison.csv` — Detailed metrics for spreadsheet analysis
+
+---
+
+### Extract Best Designs: `extract_best_designs.sh`
+
+Collect the top-ranked design from each approach into one folder for easy comparison.
+
+**Usage:**
+```bash
+./extract_best_designs.sh
+```
+
+**Output:**
+```
+best_designs_global/
+├── 01_sialinbinder_exposed.cif
+├── 02_sialinbinder_partexposed.cif
+├── 03_sialinbinder_with_ligand.cif
+└── ... (one per approach)
+```
+
+Use these structures for:
+- Visual inspection in ChimeraX/PyMOL
+- Wet-lab validation
+- Further refinement
+
+---
+
+## 🔄 Complete Analysis Workflow
+
+### Step 1: Monitor Jobs
+```bash
+./monitor_jobs.sh
+```
+Wait until designs show "✓ COMPLETE"
+
+### Step 2: Run Analysis for Each Approach
+```bash
+./run_analysis.sh --config config/sialinbinder_exposed.yaml
+./run_analysis.sh --config config/sialinbinder_with_ligand.yaml
+./run_analysis.sh --config config/sialinbinder_partexposed.yaml
+# ... repeat for all approaches
+```
+
+### Step 3: Compare Approaches
+```bash
+./compare_approaches.sh
+```
+
+### Step 4: Extract Winners
+```bash
+./extract_best_designs.sh
+```
+
+### Step 5: Visual Inspection
+```bash
+# Open in structure viewer (ChimeraX, PyMOL, Jmol)
+cd best_designs_global/
+# Open .cif files to inspect binding interfaces
+```
+
+---
+
+## 📈 Understanding Analysis Results
+
+### Score Calculation (Ligand Designs)
+
+```
+Aggregate Score = 0.8 × ipTM + 0.2 × (pLDDT/100) - RMSD_penalty
+```
+
+**Weights:**
+- **80% ipTM** — Ligand-protein interface quality (most important!)
+- **20% pLDDT** — Overall protein confidence
+- **RMSD penalty** — Backbone deviation from template
+
+### Metric Interpretation
+
+**ipTM/pTM (Interface Template Modeling)**
+```
+>0.93 = Excellent ⭐⭐⭐ — Very confident binding prediction
+0.88-0.93 = Good  ⭐⭐   — Solid prediction
+0.80-0.88 = Fair  ⭐    — Reasonable, worth testing
+<0.80  = Uncertain ❌   — High uncertainty
+```
+
+**pLDDT (Predicted Local Distance Difference Test)**
+```
+>92 = Very High Confidence — Excellent structure prediction
+85-92 = High Confidence    — Good prediction
+75-85 = Moderate          — Moderate confidence
+<75   = Low Confidence    — Uncertain
+```
+
+**RMSD (Root Mean Square Deviation)**
+```
+<2.0 Å  = Excellent    — Very close to template
+2-3 Å   = Good         — Moderate deviation
+3-4 Å   = Acceptable   — Significant but okay
+>4 Å    = Poor         — Major deviation
+```
+
+### Consistency Metrics
+
+**Mean vs Best Score:**
+- **High Best, Low Mean** → Lottery (few great, many mediocre)
+- **High Best, High Mean** → Reliable (consistently good)
+
+**Standard Deviation:**
+- **Std < 0.01** → Very consistent ✓
+- **Std 0.01-0.02** → Reasonably consistent
+- **Std > 0.02** → Inconsistent (lottery-like)
+
+---
+
+## 📚 Configuration Options Reference
+
+### Design Approaches
+
+**Protein-Only (No Ligand)**
+```yaml
+ligands:
+  smiles_list: []           # Empty = no ligand
+```
+
+**With Ligand/Cofactor**
+```yaml
+ligands:
+  smiles_list:
+    - "NAME SMILES_STRING"  # e.g., "glycan O1C(O)..."
+  cofactor_name: "glycan"   # Identifier for filtering
+  min_cofactor_sasa: 10.0   # Optional SASA threshold
+```
+
+### Folding Engine Selection
+
+**Chai (Recommended)**
+```yaml
+folding_engine:
+  engine: "chai"
+  chai:
+    conda_env: "/path/to/chai_env"
+    recycles: 3             # 1-5 (more = slower)
+    timesteps: 200
+    use_esm_embeddings: true
+```
+
+**AlphaFold2**
+```yaml
+folding_engine:
+  engine: "alphafold"
+  alphafold:
+    model_preset: "multimer"  # or "monomer"
+    max_template_date: "2022-01-01"
+```
+
+**Boltz**
+```yaml
+folding_engine:
+  engine: "boltz"
+  boltz:
+    num_recycles: 4
+```
+
+### Quality Thresholds
+
+```yaml
+filters:
+  min_plddt_initial: 50     # Initial folding filter
+  min_plddt_final: 75       # Final results filter
+  min_motif_plddt: 55       # Active site confidence
+  max_backbone_rmsd: 3.5    # Template deviation
+  max_backbone_rmsd: 1.5    # Active site deviation
+```
+
+Higher values = stricter filtering = fewer but higher-quality results
+
+### Parallel Run Configuration
+
+```yaml
+output:
+  work_directory: "/path/to/SialinBinder"
+  # Generates: SialinBinder/, SialinBinder_2, SialinBinder_3, etc.
+```
+
+**Automatically detects 5 runs for aggregation:**
+- `SialinBinder/design_generation/approach_name`
+- `SialinBinder_2/design_generation/approach_name`
+- `SialinBinder_3/design_generation/approach_name`
+- `SialinBinder_4/design_generation/approach_name`
+- `SialinBinder_5/design_generation/approach_name`
+
+---
+
 ## Troubleshooting
 
 ### Pipeline Won't Start
@@ -742,6 +1036,16 @@ For bugs, features, or documentation improvements:
 
 ---
 
-**Last Updated**: 2026-06-26
-**Installation Script Added**: `install_all.sh` for automated setup
-**Quick Start Guide**: See [QUICKSTART.md](QUICKSTART.md)  
+**Last Updated**: 2026-07-01
+**Latest Features**:
+- Multi-run analysis with `run_analysis.sh` (aggregates 5 parallel runs)
+- Cross-approach comparison with `compare_approaches.sh`
+- Job monitoring with `monitor_jobs.sh`
+- Best design extraction with `extract_best_designs.sh`
+- CSV exports and comprehensive visualization plots
+- Per-run statistics and global ranking
+
+**Documentation**:
+- [QUICKSTART.md](QUICKSTART.md) — Installation & basic usage
+- [COMPARISON_GUIDE.md](COMPARISON_GUIDE.md) — Approach comparison workflow
+- [README.md](README.md) — Complete reference (this file)

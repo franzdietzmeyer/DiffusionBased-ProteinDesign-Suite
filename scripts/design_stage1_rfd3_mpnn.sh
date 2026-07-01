@@ -130,8 +130,8 @@ else
 
     mkdir -p "$RFD3_OUTPUT"
 
-    # Create temporary settings file to avoid naming conflicts
-    TEMP_SETTINGS="$SUBDIR.json"
+    # Create temporary settings file to avoid naming conflicts (use absolute path)
+    TEMP_SETTINGS="$CHECKPOINT_DIR/$SUBDIR.json"
     cp "$RFD3_SETTINGS" "$TEMP_SETTINGS"
 
     # Activate RFD3 environment and run
@@ -146,7 +146,7 @@ else
         inference_sampler.step_scale="$RFD3_STEP_SCALE"
 
     RFD3_EXIT_CODE=$?
-    rm "$TEMP_SETTINGS"
+    rm -f "$TEMP_SETTINGS"
     deactivate
 
     if [[ $RFD3_EXIT_CODE -ne 0 ]]; then

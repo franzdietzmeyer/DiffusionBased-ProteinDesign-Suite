@@ -37,10 +37,26 @@ bash install_all.sh --skip-verify
 ```
 
 ### Custom Directories
+
+**Local conda-envs directory (relative path):**
+```bash
+bash install_all.sh --conda-env-dir conda-envs/
+```
+
+**Absolute paths:**
 ```bash
 bash install_all.sh \
-  --conda-env-dir /custom/conda/path \
-  --install-dir /custom/install/path
+  --conda-env-dir ~/my-conda-envs \
+  --rfd3-dir ~/software/foundry \
+  --mpnn-dir ~/software/LigandMPNN \
+  --checkpoint-dir ~/models/rfd3-checkpoints
+```
+
+**Mix and match:**
+```bash
+bash install_all.sh \
+  --conda-env-dir conda-envs/ \
+  --checkpoint-dir ~/large-disk/checkpoints
 ```
 
 ### Show All Options

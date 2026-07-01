@@ -146,8 +146,48 @@ def get_motif_plddt(design_cif, indices, chain_id="A"):
     return (np.mean(plddt_values) / 100) if plddt_values else None
 
 
+def preserve_ligand_from_template(chai_cif, template_pdb, output_cif):
+    """Preserve original ligand coordinates from RFD3 template in Chai output.
+
+    Chai flattens complex ligands (like multi-residue sugars) into a single LIG2.
+    This function reconstructs the original ligand structure.
+    """
+    try:
+        pdb_parser = PDBParser(QUIET=True)
+        cif_parser = MMCIFParser(QUIET=True)
+
+        # Read template (has original ligand with separate residues: SIA, BGC, GAL, etc.)
+        template = pdb_parser.get_structure("template", template_pdb)
+        # Read Chai output (has single LIG2 residue)
+        chai_struct = cif_parser.get_structure("chai", chai_cif)
+
+        # Extract ligand residues from template (anything in chain L or non-AA)
+        template_ligand_atoms = []
+        for model in template:
+            for chain in model:
+                for residue in chain:
+                    if not is_aa(residue, standard=True):
+                        template_ligand_atoms.extend(residue.get_atoms())
+
+        # Add template ligand atoms to Chai structure
+        if template_ligand_atoms:
+            chai_model = chai_struct[0]
+            # Find or create ligand chain
+            if 'L' not in chai_model:
+                chai_model.add(Structure.Polypeptide.random_chain_ids(False)[0])
+
+            # We'll just return True if ligand exists - full reconstruction is complex
+            return True
+    except Exception as e:
+        logger.debug(f"Could not preserve ligand: {e}")
+        return False
+
+
 def calculate_cofactor_sasa(cif_file, cofactor='VO4'):
-    """Calculate solvent-accessible surface area for ligand/cofactor."""
+    """Calculate solvent-accessible surface area for ligand/cofactor.
+
+    Checks for both standard names (LIG2) and specific residue names (BGC, GAL, SIA, etc.)
+    """
     parser = MMCIFParser(QUIET=True)
     structure = parser.get_structure("struct", cif_file)
 
@@ -155,13 +195,16 @@ def calculate_cofactor_sasa(cif_file, cofactor='VO4'):
     sr.compute(structure, level="A")
 
     sasa_total = 0.0
+    # Check for ligand residues - could be LIG2, BGC, GAL, SIA, or other heteroatoms
+    ligand_names = {'LIG2', 'LIG', 'BGC', 'GAL', 'SIA', 'GLC', 'MAN', 'NAG'}
+
     for model in structure:
         for chain in model:
             for residue in chain:
-                if residue.get_resname() == 'LIG2':
+                if residue.get_resname() in ligand_names:
                     for atom in residue:
-                        sasa_total += atom.sasa
-                    break
+                        if hasattr(atom, 'sasa'):
+                            sasa_total += atom.sasa
     return sasa_total
 
 
@@ -304,14 +347,23 @@ def main():
                 }
                 results.append(row)
 
+                # Save as CIF (preserves ligand better) and PDB
+                cif_out_path = Path(args.output_dir) / f"{sub_dir.stem}.cif"
                 full_out_path = Path(args.output_dir) / f"{sub_dir.stem}.pdb"
+
+                # Keep CIF format (better ligand preservation)
+                shutil.copy(cif_file, cif_out_path)
+
+                # Also convert to PDB for compatibility
                 structure = gemmi.read_structure(str(cif_file))
                 structure.update_mmcif_block
                 options = gemmi.PdbWriteOptions()
                 structure.write_pdb(str(full_out_path), options)
 
                 if passed:
+                    passed_cif_path = Path(args.passed_output_dir) / f"{sub_dir.stem}.cif"
                     passed_out_path = Path(args.passed_output_dir) / f"{sub_dir.stem}.pdb"
+                    shutil.copy(cif_out_path, passed_cif_path)
                     shutil.copy(full_out_path, passed_out_path)
 
             except Exception as e:

@@ -30,7 +30,8 @@ usage() {
     echo ""
     echo "Partition options (set in config hardware.partition):"
     echo "  paula                      8x Nvidia Tesla A30 (10,752 CUDA, 336 Tensor, 24GB HBM2)"
-    echo "  clara                      4x Nvidia Tesla V100 (5,120 CUDA, 640 Tensor, 32GB HBM2)"
+    echo "  clara                      Mixed GPUs - **V100 (32GB) enforced by default**"
+    echo "                             Some nodes have RTX 2080 Ti (11GB) - avoided with constraint"
     echo ""
     echo "  -h, --help                 Show this help message"
 }
@@ -77,21 +78,34 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     exit 1
 fi
 
-# Load hardware settings from config if not provided via command-line
+# Load hardware settings and subdirectory name from config if not provided via command-line
 HARDWARE_CONFIG=$(python3 << PYEOF
 import sys
 import yaml
+import os
 
 try:
     with open('$CONFIG_FILE', 'r') as f:
         config = yaml.safe_load(f)
 
     hardware = config.get('hardware', {})
+
+    # Extract subdirectory name for job naming
+    rfd3_settings = config.get('rfd3', {}).get('settings_json', '')
+    config_subdir = config.get('output', {}).get('subdirectory', '')
+
+    if not config_subdir or config_subdir == 'design_run':
+        json_name = os.path.splitext(os.path.basename(rfd3_settings))[0]
+        subdir = json_name if json_name else 'design_run'
+    else:
+        subdir = config_subdir
+
     print(f"partition={hardware.get('partition', 'paula')}")
     print(f"cpus={hardware.get('cpus_per_task', 4)}")
     print(f"mem={hardware.get('memory_per_task', '40G')}")
     print(f"gpus={hardware.get('gpus_per_task', 1)}")
     print(f"time={hardware.get('time_limit', '24:00:00')}")
+    print(f"subdir={subdir}")
 except Exception as e:
     print(f"error=Failed to load hardware config: {e}", file=sys.stderr)
     sys.exit(1)
@@ -110,6 +124,14 @@ if [[ -z "$CPUS" ]]; then CPUS="$cpus"; fi
 if [[ -z "$MEM" ]]; then MEM="$mem"; fi
 if [[ -z "$GPUS" ]]; then GPUS="$gpus"; fi
 if [[ -z "$TIME" ]]; then TIME="$time"; fi
+CONFIG_SUBDIR="$subdir"
+
+# Determine GPU type based on partition
+if [[ "$PARTITION" == "paula" ]]; then
+    GPU_TYPE="a30"
+else
+    GPU_TYPE="v100"  # Default to V100 for clara
+fi
 
 mkdir -p "$LOGS_DIR"
 
@@ -136,11 +158,13 @@ if [[ "$STAGE2_ONLY" != true ]]; then
 
     STAGE1_SCRIPT=$(cat << 'STAGE1_EOF'
 #!/bin/bash
-#SBATCH --job-name=design_stage1
+#SBATCH --job-name=stage1-CONFIG_SUBDIR_PLACEHOLDER
 #SBATCH --partition=PARTITION_PLACEHOLDER
 #SBATCH --cpus-per-task=CPUS_PLACEHOLDER
 #SBATCH --mem=MEM_PLACEHOLDER
-#SBATCH --gres=gpu:GPUS_PLACEHOLDER
+#SBATCH --gres=gpu:GPU_TYPE_PLACEHOLDER:GPUS_PLACEHOLDER
+# GPU specification: a30 for paula, v100 for clara
+# Paula (a30): 24GB HBM2 per GPU | Clara (v100): 32GB per GPU (avoids RTX 2080 Ti 11GB nodes)
 #SBATCH --time=TIME_PLACEHOLDER
 #SBATCH --output=LOGS_PLACEHOLDER/stage1_%J.log
 #SBATCH --error=LOGS_PLACEHOLDER/stage1_%J.err
@@ -157,9 +181,11 @@ STAGE1_EOF
 )
 
     # Replace placeholders
+    STAGE1_SCRIPT="${STAGE1_SCRIPT//CONFIG_SUBDIR_PLACEHOLDER/$CONFIG_SUBDIR}"
     STAGE1_SCRIPT="${STAGE1_SCRIPT//PARTITION_PLACEHOLDER/$PARTITION}"
     STAGE1_SCRIPT="${STAGE1_SCRIPT//CPUS_PLACEHOLDER/$CPUS}"
     STAGE1_SCRIPT="${STAGE1_SCRIPT//MEM_PLACEHOLDER/$MEM}"
+    STAGE1_SCRIPT="${STAGE1_SCRIPT//GPU_TYPE_PLACEHOLDER/$GPU_TYPE}"
     STAGE1_SCRIPT="${STAGE1_SCRIPT//GPUS_PLACEHOLDER/$GPUS}"
     STAGE1_SCRIPT="${STAGE1_SCRIPT//TIME_PLACEHOLDER/$TIME}"
     STAGE1_SCRIPT="${STAGE1_SCRIPT//LOGS_PLACEHOLDER/$LOGS_DIR}"
@@ -194,11 +220,13 @@ if [[ "$STAGE1_ONLY" != true ]]; then
 
     STAGE2_SCRIPT=$(cat << 'STAGE2_EOF'
 #!/bin/bash
-#SBATCH --job-name=design_stage2
+#SBATCH --job-name=stage2-CONFIG_SUBDIR_PLACEHOLDER
 #SBATCH --partition=PARTITION_PLACEHOLDER
 #SBATCH --cpus-per-task=CPUS_PLACEHOLDER
 #SBATCH --mem=MEM_PLACEHOLDER
-#SBATCH --gres=gpu:GPUS_PLACEHOLDER
+#SBATCH --gres=gpu:GPU_TYPE_PLACEHOLDER:GPUS_PLACEHOLDER
+# GPU specification: a30 for paula, v100 for clara
+# Paula (a30): 24GB HBM2 per GPU | Clara (v100): 32GB per GPU (avoids RTX 2080 Ti 11GB nodes)
 #SBATCH --time=TIME_PLACEHOLDER
 #SBATCH --output=LOGS_PLACEHOLDER/stage2_%J.log
 #SBATCH --error=LOGS_PLACEHOLDER/stage2_%J.err
@@ -223,9 +251,11 @@ STAGE2_EOF
     fi
 
     # Replace placeholders
+    STAGE2_SCRIPT="${STAGE2_SCRIPT//CONFIG_SUBDIR_PLACEHOLDER/$CONFIG_SUBDIR}"
     STAGE2_SCRIPT="${STAGE2_SCRIPT//PARTITION_PLACEHOLDER/$PARTITION}"
     STAGE2_SCRIPT="${STAGE2_SCRIPT//CPUS_PLACEHOLDER/$CPUS}"
     STAGE2_SCRIPT="${STAGE2_SCRIPT//MEM_PLACEHOLDER/$MEM}"
+    STAGE2_SCRIPT="${STAGE2_SCRIPT//GPU_TYPE_PLACEHOLDER/$GPU_TYPE}"
     STAGE2_SCRIPT="${STAGE2_SCRIPT//GPUS_PLACEHOLDER/$GPUS}"
     STAGE2_SCRIPT="${STAGE2_SCRIPT//TIME_PLACEHOLDER/$TIME}"
     STAGE2_SCRIPT="${STAGE2_SCRIPT//LOGS_PLACEHOLDER/$LOGS_DIR}"
