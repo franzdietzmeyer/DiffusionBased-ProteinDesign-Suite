@@ -44,7 +44,7 @@ A modular, production-ready pipeline for **protein design and structure predicti
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 **New users:** Start here!
 
@@ -52,12 +52,11 @@ A modular, production-ready pipeline for **protein design and structure predicti
 bash install_all.sh
 ./submit_design_pipeline.sh --config config/rfd3_compact_3epi.yaml
 ```
-
-👉 See [QUICKSTART.md](QUICKSTART.md) for detailed guide and troubleshooting.
+ See [QUICKSTART.md](QUICKSTART.md) for detailed guide and troubleshooting.
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 
 - [Quick Start](#-quick-start) — Get up and running in minutes
 - [Installation Guide](#-installation-guide) — Automated or manual setup
@@ -85,9 +84,9 @@ bash install_all.sh
 
 ---
 
-## 🔧 Installation Guide
+## Installation Guide
 
-### ⚡ Quick Installation (Recommended)
+### Quick Installation (Recommended)
 
 **Automated installation with a single command:**
 
@@ -96,12 +95,12 @@ bash install_all.sh
 ```
 
 This script automatically:
-- ✅ Checks prerequisites (Python, Conda, Git, GPU)
-- ✅ Clones all repositories (Foundry, LigandMPNN)
-- ✅ Creates all conda environments (RFD3, MPNN, Chai, Boltz)
-- ✅ Downloads model checkpoints (~30-45 min)
-- ✅ Verifies installations
-- ✅ Prints setup summary
+- Checks prerequisites (Python, Conda, Git, GPU)
+- Clones all repositories (Foundry, LigandMPNN)
+- Creates all conda environments (RFD3, MPNN, Chai, Boltz)
+- Downloads model checkpoints (~30-45 min)
+- Verifies installations
+- Prints setup summary
 
 **Installation time:** ~45-90 minutes (depending on internet speed)
 
@@ -585,7 +584,7 @@ Key metrics saved in `analysis/metrics.csv`:
 
 ---
 
-## 📊 Analysis & Comparison Tools
+## Analysis & Comparison Tools
 
 ### Multi-Run Analysis: `run_analysis.sh`
 
@@ -597,13 +596,13 @@ After 5 parallel design runs complete, aggregate and analyze results across all 
 ```
 
 **What it does:**
-1. ✅ Finds all 5 run directories (Run 1-5)
-2. ✅ Loads top 20 structures from each run (100 total)
-3. ✅ Aggregates metrics (ipTM, pTM, pLDDT, RMSD)
-4. ✅ Calculates global ranking across all runs
-5. ✅ Generates visualization plots
-6. ✅ Exports results to CSV
-7. ✅ Collects top 20 globally into `top20_global_all_runs/`
+1. Finds all 5 run directories (Run 1-5)
+2. Loads top 20 structures from each run (100 total)
+3. Aggregates metrics (ipTM, pTM, pLDDT, RMSD)
+4. Calculates global ranking across all runs
+5. Generates visualization plots
+6. Exports results to CSV
+7. Collects top 20 globally into `top20_global_all_runs/`
 
 **Output Files:**
 - `all_structures_[name]_ligand.csv` — All 100 structures with metrics
@@ -647,9 +646,9 @@ sialinbinder_pocket_refined              ✗ NOT FOUND    -
 ```
 
 **Indicators:**
-- ✓ **COMPLETE** — Job finished (has `top20/` or `results/`)
-- ⏳ **RUNNING** — In progress (has `output/` folder)
-- ✗ **NOT FOUND** — Directory doesn't exist
+- **COMPLETE** — Job finished (has `top20/` or `results/`)
+- **RUNNING** — In progress (has `output/` folder)
+- **NOT FOUND** — Directory doesn't exist
 
 ---
 
@@ -678,9 +677,9 @@ sialinbinder_partexposed   0.9433      0.9282     0.9500     0.9272
 sialinbinder_with_ligand   0.9299      0.8905     0.9315     0.8882
 
 TOP 3 RECOMMENDED APPROACHES
-1️⃣  BEST SINGLE DESIGN:    sialinbinder_partexposed (0.9433)
-2️⃣  MOST CONSISTENT:       sialinbinder_exposed (Mean: 0.9291, Std: 0.0063)
-3️⃣  BEST LIGAND BINDING:   sialinbinder_exposed (Mean ipTM: 0.9308)
+1️BEST SINGLE DESIGN:    sialinbinder_partexposed (0.9433)
+2️MOST CONSISTENT:       sialinbinder_exposed (Mean: 0.9291, Std: 0.0063)
+3️BEST LIGAND BINDING:   sialinbinder_exposed (Mean ipTM: 0.9308)
 ```
 
 **Output:**
@@ -713,7 +712,7 @@ Use these structures for:
 
 ---
 
-## 🔄 Complete Analysis Workflow
+## Complete Analysis Workflow
 
 ### Step 1: Monitor Jobs
 ```bash
@@ -748,7 +747,7 @@ cd best_designs_global/
 
 ---
 
-## 📈 Understanding Analysis Results
+## Understanding Analysis Results
 
 ### Score Calculation (Ligand Designs)
 
@@ -765,18 +764,18 @@ Aggregate Score = 0.8 × ipTM + 0.2 × (pLDDT/100) - RMSD_penalty
 
 **ipTM/pTM (Interface Template Modeling)**
 ```
->0.93 = Excellent ⭐⭐⭐ — Very confident binding prediction
-0.88-0.93 = Good  ⭐⭐   — Solid prediction
-0.80-0.88 = Fair  ⭐    — Reasonable, worth testing
-<0.80  = Uncertain ❌   — High uncertainty
+>0.93 = Excellent 
+0.88-0.93 = Good  
+0.80-0.88 = Fair  
+<0.80  = Uncertain 
 ```
 
 **pLDDT (Predicted Local Distance Difference Test)**
 ```
->92 = Very High Confidence — Excellent structure prediction
-85-92 = High Confidence    — Good prediction
-75-85 = Moderate          — Moderate confidence
-<75   = Low Confidence    — Uncertain
+>92 = Very High Confidence 
+85-92 = High Confidence    
+75-85 = Moderate          
+<75   = Low Confidence    
 ```
 
 **RMSD (Root Mean Square Deviation)**
@@ -794,13 +793,13 @@ Aggregate Score = 0.8 × ipTM + 0.2 × (pLDDT/100) - RMSD_penalty
 - **High Best, High Mean** → Reliable (consistently good)
 
 **Standard Deviation:**
-- **Std < 0.01** → Very consistent ✓
+- **Std < 0.01** → Very consistent
 - **Std 0.01-0.02** → Reasonably consistent
 - **Std > 0.02** → Inconsistent (lottery-like)
 
 ---
 
-## 📚 Configuration Options Reference
+## Configuration Options Reference
 
 ### Design Approaches
 
