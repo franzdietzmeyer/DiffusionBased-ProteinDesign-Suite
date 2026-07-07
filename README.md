@@ -138,6 +138,7 @@ cd foundry
 **Create conda environment from YAML:**
 
 ```bash
+cd path/to/root
 conda env create -f environments/rfd3_env.yml
 conda activate rfd3
 ```
@@ -175,6 +176,7 @@ cd LigandMPNN
 bash get_model_params.sh "./model_params"
 
 # Create conda environment from YAML:
+cd path/to/root
 conda env create -f environments/ligandmpnn_env.yml
 conda activate ligandmpnn_env
 ```
@@ -186,6 +188,7 @@ conda activate ligandmpnn_env
 **Create conda environment from YAML:**
 
 ```bash
+cd path/to/root
 conda env create -f environments/chai_env.yml
 conda activate chai_env
 ```
