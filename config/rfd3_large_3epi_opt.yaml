@@ -8,7 +8,7 @@
 rfd3:
   settings_json: "/work2/fd55fani-genie3/pipeline_scaffolding/jsons/rfd3_large_3epi.json"
   checkpoint: "/work2/fd55fani-genie3/rf3/foundry/checkpoints/rfd3_latest.ckpt"
-  batch_size: 4
+  batch_size: 2
   n_batches: 10                                   # OPT: Increased from 5 (more designs)
   inference_sampler_step_scale: 2.0              # OPT: Increased from 1.5 (more diverse sampling)
   foundry_path: "/work2/fd55fani-genie3/rfd3_new/foundry/foundry_new"
@@ -84,7 +84,7 @@ fixed_residues:
 # Output & Logging Configuration
 # ============================================================================
 output:
-  work_directory: "/work2/fd55fani-genie3/pipeline_scaffolding/HA_MES_outputs"
+  work_directory: "/work2/fd55fani-genie3/pipeline_scaffolding/corr_outputs"
   subdirectory: ""
 
   logs_dir: "logs"
@@ -94,9 +94,9 @@ output:
 # Hardware & Cluster Configuration
 # ============================================================================
 hardware:
-  partition: "paula"
+  partition: "clara"
   cpus_per_task: 4
-  memory_per_task: "32G"
+  memory_per_task: "64G"
   gpus_per_task: 1
   time_limit: "10:00:00"
 

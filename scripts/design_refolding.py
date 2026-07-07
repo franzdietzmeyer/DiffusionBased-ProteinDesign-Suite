@@ -66,8 +66,9 @@ def create_fasta(seq, name, ligand_dict, out_path, engine='chai', msa_path=None)
 
 
 def run_chai_inference(fasta_path, output_dir, recycles, timesteps, use_embeddings):
-    """Run Chai1 structure prediction."""
+    """Run Chai1 structure prediction and save PAE tensor."""
     from chai_lab.chai1 import run_inference
+    import numpy as np
 
     try:
         candidates = run_inference(
@@ -79,6 +80,16 @@ def run_chai_inference(fasta_path, output_dir, recycles, timesteps, use_embeddin
             device="cuda:0",
             use_esm_embeddings=use_embeddings,
         )
+
+        # Save PAE tensor from candidates for ipsae.py downstream
+        if hasattr(candidates, 'pae') and candidates.pae is not None:
+            output_path = Path(output_dir)
+            for idx in range(candidates.pae.shape[0]):
+                pae_npz = output_path / f"pae.model_idx_{idx}.npz"
+                # candidates.pae is torch.Tensor; convert to numpy and save
+                pae_data = candidates.pae[idx].cpu().numpy() if hasattr(candidates.pae[idx], 'cpu') else candidates.pae[idx]
+                np.savez(pae_npz, pae=pae_data)
+
         return True
     except Exception as e:
         logger.error(f"Chai inference failed: {e}")

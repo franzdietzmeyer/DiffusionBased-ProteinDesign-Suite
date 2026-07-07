@@ -15,6 +15,7 @@ import shutil
 import pandas as pd
 import numpy as np
 import sys
+import subprocess
 from pathlib import Path
 from Bio.PDB import PDBParser, MMCIFParser, PDBIO, Superimposer, ShrakeRupley, is_aa
 import gemmi
@@ -208,6 +209,113 @@ def calculate_cofactor_sasa(cif_file, cofactor='VO4'):
     return sasa_total
 
 
+def extract_plddt_array(cif_file):
+    """Extract per-residue pLDDT values from CIF B-factors."""
+    try:
+        plddt_vals = []
+        parser = MMCIFParser(QUIET=True)
+        structure = parser.get_structure("struct", cif_file)
+        for model in structure:
+            for chain in model:
+                for residue in chain:
+                    if is_aa(residue):
+                        for atom in residue:
+                            plddt_vals.append(atom.get_bfactor())
+        return np.array(plddt_vals) if plddt_vals else np.array([])
+    except Exception:
+        return np.array([])
+
+
+def prepare_ipsae_inputs(cif_file, pae_npz, scores_npz):
+    """Prepare plddt and confidence JSON files for ipsae.py in Boltz mode.
+
+    ipsae.py expects pae_{stem}.npz alongside {stem}.cif, plus plddt_{stem}.npz
+    and confidence_{stem}.json in the same directory.
+    """
+    try:
+        cif_stem = Path(cif_file).stem.replace('pred.', '')
+        work_dir = Path(cif_file).parent
+
+        # Prepare plddt NPZ file
+        plddt_array = extract_plddt_array(cif_file)
+        plddt_npz = work_dir / f"plddt_{cif_stem}.npz"
+        np.savez(plddt_npz, plddt=plddt_array)
+
+        # Prepare confidence JSON with pair_chains_iptm from scores
+        confidence_json = work_dir / f"confidence_{cif_stem}.json"
+        try:
+            scores_data = np.load(scores_npz)
+            per_chain_pair_iptm = scores_data.get('per_chain_pair_iptm', None)
+            if per_chain_pair_iptm is not None:
+                # per_chain_pair_iptm is shape (1, N, N), extract [0]
+                iptm_matrix = per_chain_pair_iptm[0] if per_chain_pair_iptm.ndim == 3 else per_chain_pair_iptm
+                # Convert to string-keyed dict as ipsae.py expects
+                pair_chains_iptm = {
+                    str(i): {str(j): float(iptm_matrix[i, j]) for j in range(iptm_matrix.shape[1])}
+                    for i in range(iptm_matrix.shape[0])
+                }
+            else:
+                pair_chains_iptm = {}
+        except Exception:
+            pair_chains_iptm = {}
+
+        confidence_data = {'pair_chains_iptm': pair_chains_iptm}
+        with open(confidence_json, 'w') as f:
+            json.dump(confidence_data, f)
+
+        return str(pae_npz), str(cif_file)
+    except Exception as e:
+        print(f"Warning: Could not prepare ipsae inputs: {e}")
+        return None, None
+
+
+def run_ipsae(cif_file, pae_npz, scores_npz, pae_cutoff=5, dist_cutoff=10):
+    """Run ipsae.py and extract ipSAE score."""
+    try:
+        pae_input, cif_path = prepare_ipsae_inputs(cif_file, pae_npz, scores_npz)
+        if pae_input is None:
+            return None
+
+        ipsae_script = Path(__file__).parent.parent / "ipsae.py"
+        if not ipsae_script.exists():
+            return None
+
+        cif_stem = Path(cif_file).stem.replace('pred.', '')
+        output_txt = Path(cif_file).parent / f"{cif_stem}_0{int(pae_cutoff):1d}_1{int(dist_cutoff):1d}.txt"
+
+        # Run ipsae.py
+        result = subprocess.run(
+            [sys.executable, str(ipsae_script), pae_input, cif_path, str(pae_cutoff), str(dist_cutoff)],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if result.returncode != 0 or not output_txt.exists():
+            return None
+
+        # Parse output for ipSAE score (max value from chain pairs)
+        ipsae_score = None
+        try:
+            with open(output_txt, 'r') as f:
+                for line in f:
+                    if 'asym' in line or 'max' in line:
+                        parts = line.split()
+                        if len(parts) >= 7:
+                            try:
+                                score = float(parts[6])
+                                if ipsae_score is None or score > ipsae_score:
+                                    ipsae_score = score
+                            except (ValueError, IndexError):
+                                pass
+        except Exception:
+            pass
+
+        return ipsae_score
+    except Exception as e:
+        return None
+
+
 def save_csv(df, filepath):
     """Save DataFrame to CSV, appending if file exists."""
     header = not os.path.exists(filepath)
@@ -239,19 +347,28 @@ def main():
     parser.add_argument("--template_pdbs", help="Directory containing template PDBs")
     parser.add_argument("--passed_output_dir", default="filtered_designs")
     parser.add_argument("--output_dir", default="designs")
-    parser.add_argument("--min_plddt", type=float, default=80.0)
-    parser.add_argument("--min_motif_plddt", type=float, default=85.0)
+    parser.add_argument("--min_plddt", type=float, default=0.8)
+    parser.add_argument("--min_motif_plddt", type=float, default=0.55)
+    parser.add_argument("--min_ptm", type=float, default=0.8)
     parser.add_argument("--max_rmsd", type=float, default=3.0)
-    parser.add_argument("--max_motif_rmsd", type=float, default=3.0)
+    parser.add_argument("--max_motif_rmsd", type=float, default=2.0)
+    parser.add_argument("--pae_cutoff", type=float, default=5)
+    parser.add_argument("--dist_cutoff", type=float, default=10)
+    parser.add_argument("--min_ipsae", type=float, default=None)
     parser.add_argument("--fixed_res_json", type=str,
                        help="Fixed residues JSON from sequence design")
     parser.add_argument("--cofactor", type=str, default="VO4")
-    parser.add_argument("--min_cofactor_sasa", type=float, default=None)
+    parser.add_argument("--min_cofactor_sasa", type=float, default=295)
+    parser.add_argument("--max_cofactor_sasa", type=float, default=395)
     args = parser.parse_args()
 
     input_path = Path(args.input)
     os.makedirs(args.output_dir, exist_ok=True)
     os.makedirs(args.passed_output_dir, exist_ok=True)
+
+    input_name = input_path.name
+    scores_filename = f"scores_{input_name}.csv"
+    passed_scores_filename = f"passed_scores_{input_name}.csv"
 
     results = []
 
@@ -306,13 +423,24 @@ def main():
 
                     motif_plddt = get_motif_plddt(cif_file, indices)
 
-                # Filtering logic
+                # Compute ipSAE score (optional - won't fail if missing)
+                ipsae_score = None
+                pae_file = next(sub_dir.glob("*_idx_0.npz"), None)
+                if npz_file and pae_file:
+                    ipsae_score = run_ipsae(str(cif_file), str(pae_file), str(npz_file),
+                                            args.pae_cutoff, args.dist_cutoff)
+
+                # Filtering logic - only fail if metric exists AND is below threshold
                 failed_list = []
                 passed = True
 
                 if plddt is None or plddt < args.min_plddt:
                     passed = False
                     failed_list.append('pLDDT')
+
+                if ptm is not None and ptm < args.min_ptm:
+                    passed = False
+                    failed_list.append('pTM')
 
                 if rmsd is not None and rmsd > args.max_rmsd:
                     passed = False
@@ -327,15 +455,24 @@ def main():
                         passed = False
                         failed_list.append('motif_RMSD')
 
-                if args.min_cofactor_sasa and str(args.min_cofactor_sasa) != "":
-                    if cofactor_sasa and cofactor_sasa < args.min_cofactor_sasa:
+                # Cofactor SASA only fails if calculated AND outside range
+                if cofactor_sasa is not None:
+                    if cofactor_sasa < args.min_cofactor_sasa or cofactor_sasa > args.max_cofactor_sasa:
                         passed = False
                         failed_list.append('cofactor_SASA')
+
+                # ipSAE only fails if both threshold is set AND score is calculated AND below threshold
+                if args.min_ipsae is not None and ipsae_score is not None and ipsae_score < args.min_ipsae:
+                    passed = False
+                    failed_list.append('ipSAE')
 
                 row = {
                     'Name': sub_dir.stem,
                     'pLDDT': plddt,
                     'pTM': ptm,
+                    'iptm_score': iptm,
+                    'aggregate_score': aggregate_score,
+                    'ipsae_score': ipsae_score,
                     'rmsd': rmsd,
                     'motif_rmsd': motif_rmsd,
                     'motif_plddt': motif_plddt,
@@ -372,8 +509,8 @@ def main():
 
     if results:
         df = pd.DataFrame(results)
-        save_csv(df, Path(args.output_dir) / 'scores.csv')
-        save_csv(df[df['Passed'] == True], Path(args.passed_output_dir) / 'passed_scores.csv')
+        save_csv(df, Path(args.output_dir) / scores_filename)
+        save_csv(df[df['Passed'] == True], Path(args.passed_output_dir) / passed_scores_filename)
         print(f"✓ Analysis complete: {len(results)} designs processed")
         print(f"✓ Results saved to {args.output_dir}")
     else:

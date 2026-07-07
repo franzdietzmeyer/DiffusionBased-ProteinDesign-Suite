@@ -84,7 +84,7 @@ fixed_residues:
 # Output & Logging Configuration
 # ============================================================================
 output:
-  work_directory: "/work2/fd55fani-genie3/pipeline_scaffolding/HA_MES_outputs"
+  work_directory: "/work2/fd55fani-genie3/pipeline_scaffolding/corr_outputs"
   subdirectory: ""
 
   logs_dir: "logs"
@@ -94,9 +94,9 @@ output:
 # Hardware & Cluster Configuration
 # ============================================================================
 hardware:
-  partition: "paula"
+  partition: "clara"
   cpus_per_task: 4
-  memory_per_task: "32G"
+  memory_per_task: "64G"
   gpus_per_task: 1
   time_limit: "10:00:00"
 

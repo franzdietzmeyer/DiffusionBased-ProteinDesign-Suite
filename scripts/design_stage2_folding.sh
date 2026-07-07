@@ -69,10 +69,14 @@ print(json.dumps({
     'chai_embeddings': config.get('folding_engine', {}).get('chai', {}).get('use_esm_embeddings', True),
     'boltz_env': config.get('folding_engine', {}).get('boltz', {}).get('conda_env', ''),
     'boltz_recycles': config.get('folding_engine', {}).get('boltz', {}).get('num_recycles', 4),
-    'min_plddt': config.get('filters', {}).get('min_plddt_final', 80.0),
-    'min_motif_plddt': config.get('filters', {}).get('min_motif_plddt', 85.0),
+    'min_plddt': config.get('filters', {}).get('min_plddt_final', 0.8),
+    'min_motif_plddt': config.get('filters', {}).get('min_motif_plddt', 0.55),
+    'min_ptm': config.get('filters', {}).get('min_ptm', 0.8),
     'max_rmsd': config.get('filters', {}).get('max_backbone_rmsd', 3.0),
-    'max_motif_rmsd': config.get('filters', {}).get('max_motif_rmsd', 1.5),
+    'max_motif_rmsd': config.get('filters', {}).get('max_motif_rmsd', 2.0),
+    'pae_cutoff': config.get('filters', {}).get('pae_cutoff', 5),
+    'dist_cutoff': config.get('filters', {}).get('dist_cutoff', 10),
+    'min_ipsae': config.get('filters', {}).get('min_ipsae', None),
     'fixed_res_json': config.get('filters', {}).get('fixed_residues_json', ''),
     'cofactor': config.get('ligands', {}).get('cofactor_name', 'VO4'),
     'min_sasa': config.get('ligands', {}).get('min_cofactor_sasa'),
@@ -99,8 +103,12 @@ BOLTZ_ENV=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(
 BOLTZ_RECYCLES=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['boltz_recycles'])")
 MIN_PLDDT=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['min_plddt'])")
 MIN_MOTIF_PLDDT=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['min_motif_plddt'])")
+MIN_PTM=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['min_ptm'])")
 MAX_RMSD=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['max_rmsd'])")
 MAX_MOTIF_RMSD=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['max_motif_rmsd'])")
+PAE_CUTOFF=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['pae_cutoff'])")
+DIST_CUTOFF=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['dist_cutoff'])")
+MIN_IPSAE=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; v=json.load(sys.stdin)['min_ipsae']; print(v if v is not None else '')")
 FIXED_RES_JSON=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['fixed_res_json'])")
 COFACTOR=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['cofactor'])")
 MIN_SASA=$(echo "$CONFIG_DATA" | python3 -c "import sys, json; print(json.load(sys.stdin)['min_sasa'])")
@@ -259,10 +267,11 @@ else
     mkdir -p "$PASSED_OUTPUT"
 
     # Build filter arguments
-    FILTER_ARGS="--min_plddt $MIN_PLDDT --min_motif_plddt $MIN_MOTIF_PLDDT --max_rmsd $MAX_RMSD --max_motif_rmsd $MAX_MOTIF_RMSD"
+    FILTER_ARGS="--min_plddt $MIN_PLDDT --min_motif_plddt $MIN_MOTIF_PLDDT --min_ptm $MIN_PTM --max_rmsd $MAX_RMSD --max_motif_rmsd $MAX_MOTIF_RMSD --pae_cutoff $PAE_CUTOFF --dist_cutoff $DIST_CUTOFF"
     [[ -n "$FIXED_RES_JSON" ]] && FILTER_ARGS="$FILTER_ARGS --fixed_res_json $FIXED_RES_JSON"
     [[ -n "$COFACTOR" ]] && FILTER_ARGS="$FILTER_ARGS --cofactor $COFACTOR"
     [[ -n "$MIN_SASA" && "$MIN_SASA" != "None" ]] && FILTER_ARGS="$FILTER_ARGS --min_cofactor_sasa $MIN_SASA"
+    [[ -n "$MIN_IPSAE" ]] && FILTER_ARGS="$FILTER_ARGS --min_ipsae $MIN_IPSAE"
 
     "$CHAI_ENV/bin/python" "$SCRIPT_DIR/design_helper_script.py" \
         --input "$FOLDING_OUTPUT" \
@@ -381,10 +390,11 @@ except Exception:
 
         # Final analysis on optimized designs
 
-        FILTER_ARGS="--min_plddt $MIN_PLDDT --min_motif_plddt $MIN_MOTIF_PLDDT --max_rmsd $MAX_RMSD --max_motif_rmsd $MAX_MOTIF_RMSD"
+        FILTER_ARGS="--min_plddt $MIN_PLDDT --min_motif_plddt $MIN_MOTIF_PLDDT --min_ptm $MIN_PTM --max_rmsd $MAX_RMSD --max_motif_rmsd $MAX_MOTIF_RMSD --pae_cutoff $PAE_CUTOFF --dist_cutoff $DIST_CUTOFF"
         [[ -n "$FIXED_RES_JSON" ]] && FILTER_ARGS="$FILTER_ARGS --fixed_res_json $FIXED_RES_JSON"
         [[ -n "$COFACTOR" ]] && FILTER_ARGS="$FILTER_ARGS --cofactor $COFACTOR"
         [[ -n "$MIN_SASA" ]] && FILTER_ARGS="$FILTER_ARGS --min_cofactor_sasa $MIN_SASA"
+        [[ -n "$MIN_IPSAE" ]] && FILTER_ARGS="$FILTER_ARGS --min_ipsae $MIN_IPSAE"
 
         "$CHAI_ENV/bin/python" "$SCRIPT_DIR/design_helper_script.py" \
             --input "$OPT_FOLDING_OUTPUT" \
