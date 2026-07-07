@@ -1,0 +1,116 @@
+# Design Configuration - Sialin Binder Exposed Epitope with Fixed Ligand
+# Epitope residues exposed to solvent + fixes entire glycan chain
+# Created: 2026-06-30
+
+# ============================================================================
+# STAGE 1: RFDiffusion Configuration
+# ============================================================================
+rfd3:
+  settings_json: "/work2/fd55fani-sialinbinder/jsons/sialinbinder_exposed_with_ligand.json"
+  checkpoint: "/work2/fd55fani-genie3/rf3/foundry/checkpoints/rfd3_latest.ckpt"
+  batch_size: 4
+  n_batches: 10
+  inference_sampler_step_scale: 1.5
+  foundry_path: "/work2/fd55fani-genie3/rfd3_new/foundry/foundry_new"
+
+# ============================================================================
+# STAGE 1: Sequence Design Configuration
+# ============================================================================
+sequence_design:
+  model_type: "soluble"
+  temperature: 0.15
+  seqs_per_backbone: 5
+  batch_size: 1
+  conda_env: "/work2/fd55fani-conda/ligandmpnn_env"
+  ligandmpnn_path: "/work2/fd55fani-genie3/LigandMPNN"
+
+# ============================================================================
+# STAGE 2: Structure Prediction & Validation
+# ============================================================================
+folding_engine:
+  engine: "chai"
+
+  chai:
+    conda_env: "/work2/fd55fani-conda/chai_env"
+    recycles: 3
+    timesteps: 200
+    use_esm_embeddings: true
+
+  alphafold:
+    hpc_module: "AlphaFold"
+    data_dir: "/software/databases/alphafold"
+    model_preset: "multimer"
+    max_template_date: "2022-01-01"
+
+  boltz:
+    conda_env: "/work2/fd55fani-conda/boltz203"
+    num_recycles: 4
+
+# ============================================================================
+# Optional: Sequence Optimization Round
+# ============================================================================
+sequence_optimization:
+  enabled: true
+  temperature: 0.1
+  seqs_per_backbone: 10
+
+# ============================================================================
+# Ligand/Cofactor Configuration - GLYCAN CHAIN (BGC-GAL-SIA)
+# ============================================================================
+ligands:
+  smiles_list:
+    - "glycan O1C(O)[C@H](O)[C@@H](O)[C@H](O[C@@H]2O[C@H](CO[C@]3(C(=O)O)C[C@H](O)[C@@H](NC(C)=O)[C@H]([C@H](O)[C@H](O)CO)O3)[C@H](O)[C@H](O)[C@H]2O)[C@H]1CO"
+  cofactor_name: "glycan"
+  min_cofactor_sasa: null
+
+# ============================================================================
+# Filtering Thresholds
+# ============================================================================
+filters:
+  min_plddt_initial: 0.5
+  min_plddt_final: 0.8
+  min_motif_plddt: 0.55
+  min_ptm: 0.8
+  max_backbone_rmsd: 3.5
+  max_motif_rmsd: 2
+  pae_cutoff: 5
+  dist_cutoff: 10
+  min_ipsae: null
+  min_cofactor_sasa: 295 #-15% from native HA-SIA complex
+  max_cofactor_sasa: 395 #+15% from native HA-SIA complex
+  fixed_residues_json: ""
+
+# ============================================================================
+# Fixed Residue Configuration
+# ============================================================================
+fixed_residues:
+  template_pdb_dir: ""
+
+# ============================================================================
+# Output & Logging Configuration
+# ============================================================================
+output:
+  work_directory: "/work2/fd55fani-sialinbinder/SialinBinder"
+  subdirectory: "sialinbinder_exposed_with_ligand"
+
+  logs_dir: "logs"
+  scripts_dir: "scripts"
+
+# ============================================================================
+# Hardware & Cluster Configuration
+# ============================================================================
+hardware:
+  partition: "clara"
+  cpus_per_task: 4
+  memory_per_task: "64G"
+  gpus_per_task: 1
+  time_limit: "10:00:00"
+
+# ============================================================================
+# Advanced Options
+# ============================================================================
+advanced:
+  force_rerun_stage: null
+  keep_intermediate_files: false
+  validation_strict: true
+  parallel_mpnn_jobs: 1
